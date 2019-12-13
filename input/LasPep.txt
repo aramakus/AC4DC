@@ -1,0 +1,18 @@
+#MOLECULE
+// Comment here.
+#ATOM
+H 700 
+C 380 
+N 92 
+O 196 
+S 8 
+#VOLUME
+83103.7      // Volume per molecule + water in atomic units.
+1890.5       // Droplet radius.
+#PULSE
+7140        // Photon energy in eV.
+15          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+0.5         // Pulse fluence in 10^4 * J/cm^2.
+2000        // Initial guess for number of time step points for rate equation.
+#OUTPUT
+// Description of the output. Default: Charge_(atom name).txt (for each atom), Intensity.txt, Plasma.txt.

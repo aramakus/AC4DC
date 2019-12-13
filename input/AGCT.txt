@@ -1,0 +1,17 @@
+#MOLECULE
+// input for atom/plasma dynamics calculation.
+#ATOM
+H 49 
+C 39
+N 15
+O 24
+P  4
+#VOLUME
+7562.9       // Volume per molecule in atomic units.
+#PULSE
+7000        // Photon energy in eV.
+20          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+2           // Pulse fluence in 10^4 * J/cm^2.
+2000        // Initial guess for number of time step points for rate equation.
+#OUTPUT
+// Description of the output. Default: Charge_(atom name).txt (for each atom), Intensity.txt, Plasma.txt.
