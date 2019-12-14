@@ -86,6 +86,8 @@ public:
 	double Dipole(RadialWF & A, RadialWF & B, string gauge);
 	// Average over configuration dipole matrix element.
 	double DipoleAvg(RadialWF & A, RadialWF & B, string gauge);
+  // RMS radius of a slater determinant.
+  double RMS(vector<RadialWF> & Orbitals);
 
 	~MatrixElems() {};
 private:

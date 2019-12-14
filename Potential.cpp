@@ -523,3 +523,24 @@ double MatrixElems::Msum(int La, int Lb, int k)
 
 	return Result;
 }
+
+
+double MatrixElems::RMS(vector<RadialWF> & Orbitals)
+{
+  double Result = 0;
+
+  int infty = 0;
+  for (auto & orb : Orbitals) if (orb.pract_infinity() > infty) infty = orb.pract_infinity();
+
+  vector<double> density(infty+1, 0);
+
+  for (int i = 0; i < density.size(); i++) {
+    for (auto & orb : Orbitals) density[i] += orb.occupancy()*orb.F[i]*orb.F[i];
+    density[i] *= lattice->R(i)*lattice->R(i);
+  }
+
+	Adams I(*lattice, 10);
+	Result = I.Integrate(&density, 0, density.size()-1);
+
+  return sqrt(Result);
+}
