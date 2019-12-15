@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "EigenSolver.h"
 #include "Plasma.h"
+#include <utility>
 
 inline bool exists_test(const std::string&);
 vector<double> generate_dT(int);
@@ -61,8 +62,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 	density.clear();
 	density.resize(dimension - 1);
 	for (auto& dens: density) dens.resize(lattice.size(), 0.);
+  vector<pair<double, int>> conf_RMS(0);
 
-	if (existPht || existFlr || existAug)
+	if (existPht || existFlr || existAug || true)
 	{
 		cout << "No rates found. Calculating..." << endl;
 		cout << "Total number of configurations: " << dimension << endl;
@@ -70,12 +72,11 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
-		//ffactor ffTmp;//formfactor tmp
-		//vector<ffactor> LocalFF(0);
+    vector<pair<double, int>> LocalRMS(0);
 
 		omp_set_num_threads(7);
 		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
+		shared(cout, runlog, existAug, existFlr, existPht, conf_RMS) private(Tmp, Max_occ, LocalRMS, LocalPhoto, LocalAuger, LocalFluor)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -93,6 +94,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input.Hamiltonian(), runlog);
 				
+        // Root mean square radius of atoms.
+        MatrixElems Aux(&lattice);
+        LocalRMS.push_back(pair<double, int>(sqrt(Aux.R_pow_k(Orbitals, 2)), i));
 				DecayRates Transit(lattice, Orbitals, u, input);
 
 				Tmp.from = i;
@@ -135,18 +139,6 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 						}
 					}
 				}
-				//FormFactor setup
-				/*int infinity = 0;
-				for (auto& it: Orbitals) {
-					if (it.occupancy() == 0) continue;
-					if (it.pract_infinity() > infinity) infinity = it.pract_infinity();
-				}
-
-				FormFactor W(&Lattice, Orbitals, infinity);
-				ffTmp.index = i;
-				ffTmp.val =  W.getAllFF();
-				LocalFF.push_back(ffTmp);
-        */
 
 			}
 
@@ -155,6 +147,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
+        conf_RMS.insert(conf_RMS.end(), LocalRMS.begin(), LocalRMS.end());
 				//FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
@@ -162,6 +155,8 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+    sort(conf_RMS.begin(), conf_RMS.end(), [](pair<double, int> A, pair<double, int> B) 
+    { return (A.second < B.second); });
 		GenerateRateKeys(Store.Auger);
 		
 		if (existPht) {
@@ -194,11 +189,22 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		}
 		config_out << endl;
 	}
+  config_out.close();
 
+  string rms_name = "./output/" + input.Name() + "_RMS.txt";
+  ofstream rms_out(rms_name);
 	if (0 != input.TimePts()) {
-		SetupAndSolve(runlog);
+    double ini_Width = input.Width();
+    double ini_Fluence = input.Fluence();
+    for (int n = 0; n < 20; n++) {
+      SetupAndSolve(runlog);
+      rms_out << T_avg_RMS(conf_RMS)/conf_RMS[0].first << endl;
+      input.Set_Width((input.Width()+ini_Width));
+      input.Set_Fluence((input.Fluence()+ini_Fluence)*0.0001);
+    }
 	}
 	else runlog << "Numbur of time points = 0. Skipping rate equation." << endl;
+  rms_out.close();
 
  	return dimension;
 }
@@ -942,8 +948,6 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 	InitCond[0] = 1;
 	P.clear();
 
-	Store.nAtoms = 0.00744;
-
 	vector<double> Intensity;
 	double scaling_T = 1;
 
@@ -972,7 +976,9 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 			T.clear();
 			T = Calc.GetT();
 			dT.clear();
-			dT = generate_dT(T.size());
+			dT = vector<double>(T.size(), 0);
+      for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
+      dT[T.size()-1] = dT[T.size()-2];
 		}
 		else
 		{
@@ -1395,17 +1401,21 @@ vector<double> RateEquationSolver::generate_I(vector<double>& Time, double Fluen
 
 	vector<double> Result(Time.size(), 0);
 	
-	double midpoint = (Time.back() + T[0]) / 2;
+	double midpoint = 0.5*(T.back() + T[0]);
 	double denom = 2*Sigma*Sigma;
 	double norm = 1./sqrt(denom*Constant::Pi);
 	//include the window function to make it exactly 0 at the beginning and smoothly increase toward Gaussian
   
   
   int smooth = T.size()/10;
+  double tmp = 0;
 	for (int i = 0; i < Time.size(); i++)
 	{
     Result[i] = Fluence * norm * exp(-(Time[i] - midpoint)*(Time[i] - midpoint) / denom);
-    if (i < smooth) Result[i] *= (T[i] / T[smooth])*(T[i] / T[smooth])*(3 - 2 * (T[i] / T[smooth]));
+    if (i < smooth) {
+      tmp = fabs(T[i] - T[0]) / fabs(T[smooth] - T[0]);
+      Result[i] *= tmp*tmp*(3 - 2 * tmp);
+    }
   }
   
   /*
@@ -1450,7 +1460,7 @@ vector<double> RateEquationSolver::generate_G()
 {
 	// Intensity profile normalized to 1.
 	// Time is assumbed to be in FEM
-	double Sigma = input.Width()/Constant::fs_in_au/ (2*sqrt(2*log(2.)));
+	double Sigma = input.Width()/(2*sqrt(2*log(2.)));//Constant::fs_in_au
 
 	return generate_I(T, 1, Sigma);
 }
@@ -1478,4 +1488,23 @@ int RateEquationSolver::mapOccInd(vector<RadialWF> & Orbitals)
 	}
 
 	return Result;
+}
+
+double RateEquationSolver::T_avg_RMS(vector<pair<double, int>> conf_RMS)
+{
+  // Calculate pulse-averaged root mean square radius of an atom.
+  double tmp = 0;
+
+  vector<double> intensity = generate_G();
+  if (P.size()-1 != density.size()) return -1;
+  for (int m = 0; m < T.size(); m++) {
+    tmp = 0;
+    for (int i = 0; i < conf_RMS.size(); i++) tmp += P[i][m]*conf_RMS[i].first;
+    intensity[m] *= tmp;
+  }
+
+  Grid Time(T, dT);
+  Adams I(Time, 10);
+
+  return I.Integrate(&intensity, 0, T.size()-1);  
 }

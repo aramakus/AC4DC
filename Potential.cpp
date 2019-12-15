@@ -525,7 +525,7 @@ double MatrixElems::Msum(int La, int Lb, int k)
 }
 
 
-double MatrixElems::RMS(vector<RadialWF> & Orbitals)
+double MatrixElems::R_pow_k(vector<RadialWF> & Orbitals, int k)
 {
   double Result = 0;
 
@@ -536,11 +536,11 @@ double MatrixElems::RMS(vector<RadialWF> & Orbitals)
 
   for (int i = 0; i < density.size(); i++) {
     for (auto & orb : Orbitals) density[i] += orb.occupancy()*orb.F[i]*orb.F[i];
-    density[i] *= lattice->R(i)*lattice->R(i);
+    density[i] *= pow(lattice->R(i), k);
   }
 
 	Adams I(*lattice, 10);
 	Result = I.Integrate(&density, 0, density.size()-1);
 
-  return sqrt(Result);
+  return Result;
 }

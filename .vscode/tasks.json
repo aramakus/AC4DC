@@ -9,7 +9,7 @@
             "command": "g++",
             "args": [
                 "-std=c++11",
-                "-O3",
+                "-g",
                 "main.cpp",
                 "Constant.cpp",
                 "CoupledFunction.cpp",

@@ -24,7 +24,10 @@ public:
 	double Omega() { return omega; }
 	double Width() { return width; }
 	double Fluence() { return 10000*fluence; }
-	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, int ext_T_size = 0) {
+  void Set_Width(double ext_width) {width = ext_width;}
+  void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
+	
+  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, int ext_T_size = 0) {
 		omega = ext_omega;
 		fluence = ext_fluence;
 		width = ext_width;

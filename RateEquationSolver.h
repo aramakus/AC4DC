@@ -87,6 +87,7 @@ private:
   vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
 	vector<double> generate_T(vector<double>& dT);
 	vector<double> generate_dT(int num_elem);
+  double T_avg_RMS(vector<pair<double, int>> conf_RMS);
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); } 
 	static bool sortRatesFrom(Rate A, Rate B) { return (A.from < B.from); }
