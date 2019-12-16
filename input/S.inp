@@ -1,6 +1,6 @@
 // Input for closed-shell Hartree-Fock calculations.
 // Average over configuration fractional occupancy is supported, so closed orbitals can have ocuppancy between 0 and 4L+2.
-LDA             // Hamiltonian form. Can be HF, LDA.
+HF             // Hamiltonian form. Can be HF, LDA.
 16              // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 // If it is "sphere", additional argument (nuclear radius) is expected in the same line after space.
@@ -18,6 +18,6 @@ V_N       // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-o
 length      // Gauge for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 // Parameters for time dynamics. The time interval is fixed and optimized to be 10x the width of the pulse.
 8000         // Photon energy in keV.
-10           // Pulse width in femtoseconds.
-1.06         // Fluence in 10^4 J/cm^2.
+2           // Pulse width in femtoseconds.
+500         // Fluence in 10^4 J/cm^2.
 1000            // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.

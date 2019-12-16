@@ -72,7 +72,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
-    vector<pair<double, int>> LocalRMS(0);
+    	vector<pair<double, int>> LocalRMS(0);
 
 		omp_set_num_threads(7);
 		#pragma omp parallel default(none) \
@@ -193,15 +193,15 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
   string rms_name = "./output/" + input.Name() + "_RMS.txt";
   ofstream rms_out(rms_name);
+	rms_out << 0 << " " << conf_RMS[0].first << " " << input.Nuclear_Z() << endl;
 	if (0 != input.TimePts()) {
-    double ini_Width = input.Width();
-    double ini_Fluence = input.Fluence();
-    for (int n = 0; n < 20; n++) {
-      SetupAndSolve(runlog);
-      rms_out << T_avg_RMS(conf_RMS)/conf_RMS[0].first << endl;
-      input.Set_Width((input.Width()+ini_Width));
-      input.Set_Fluence((input.Fluence()+ini_Fluence)*0.0001);
-    }
+		double ini_Width = input.Width();
+		for (int n = 0; n < 20; n++) {
+		SetupAndSolve(runlog);
+		rms_out << input.Width() << " " << T_avg_RMS(conf_RMS) << " " << T_avg_Charge();
+		if (n != 19) rms_out << endl;
+		input.Set_Width((input.Width()+ini_Width));
+		}
 	}
 	else runlog << "Numbur of time points = 0. Skipping rate equation." << endl;
   rms_out.close();
@@ -1500,6 +1500,25 @@ double RateEquationSolver::T_avg_RMS(vector<pair<double, int>> conf_RMS)
   for (int m = 0; m < T.size(); m++) {
     tmp = 0;
     for (int i = 0; i < conf_RMS.size(); i++) tmp += P[i][m]*conf_RMS[i].first;
+    intensity[m] *= tmp;
+  }
+
+  Grid Time(T, dT);
+  Adams I(Time, 10);
+
+  return I.Integrate(&intensity, 0, T.size()-1);  
+}
+
+
+double RateEquationSolver::T_avg_Charge()
+{
+  // Calculate pulse-averaged charge of atom.
+  double tmp = 0;
+
+  vector<double> intensity = generate_G();
+  for (int m = 0; m < T.size(); m++) {
+    tmp = 0;
+    for (int i = 0; i < charge.size(); i++) tmp += (input.Nuclear_Z() - i)*charge[i][m];
     intensity[m] *= tmp;
   }
 

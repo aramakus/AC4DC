@@ -15,7 +15,7 @@ coulomb       // Nuclear potential model. Can be "coulomb" for point-like nucleu
 V_N        // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-orthogonal excited state orbitals, "V_N-1" for classical -1 potential (TODO).
 length     // Gauge for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 // Parameters for time dynamics. The time interval is fixed and optimized to be 10x the width of the pulse.
-8000       // Photon energy in keV.
-5          // Pulse half-width in femtoseconds.
-54000      // Peak intensity in //x10^2 W/nm^2.
-0          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
+8000        // Photon energy in eV.
+2          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+500           // Pulse fluence in 10^4 J/cm^2.
+1000        // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.

@@ -18,6 +18,6 @@ V_N       // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-o
 length      // Gauge for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 // Parameters for time dynamics. The time interval is fixed and optimized to be 10x the width of the pulse.
 8000         // Photon energy in keV.
-10           // Pulse width in femtoseconds.
-400          // Peak intensity in //x10^2 W/nm^2.
-0        // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
+2           // Pulse width in femtoseconds.
+500          // Peak intensity in //x10^2 W/nm^2.
+1000        // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
