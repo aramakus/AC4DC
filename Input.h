@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include "IntegrateRateEquation.h"
+#include <cmath>
 
 using namespace std;
 
@@ -48,7 +49,18 @@ protected:
 	double width = 5; // XFEL pulse width. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence.
 	int num_time_steps = 0; // Guess number of time steps for time dynamics.
+	int omp_threads = 1;
 	int Z;
+
+	bool write_charges = false;
+	bool write_intensity = false;
+	int out_time_steps = 500; // Guess number of time steps for time dynamics.
+
+	double Master_tollerance = pow(10, -10);
+	double No_exchange_tollerance = pow(10, -3);
+	double HF_tollerance = pow(10, -6);
+	int max_HF_iterations = 500;
+	int max_Virt_iterations = 70;
 };
 
 

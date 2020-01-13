@@ -35,26 +35,3 @@ private:
 	Potential CntU;
 	vector<RadialWF> CntOrbitals;// Interpolated onto continuum grid "orbitals".
 };
-
-class FormFactor
-{
-//======================================================================
-//	Least square fitting of electronic density
-//	with analytic functions r^(l+1)*exp(-alpha_i*r). Used to calculate
-//	scattering formfactors, which are Fourier transforms of the
-//	density.
-//======================================================================
-public:
-	FormFactor(Grid & Lattice, vector<double> & density, int infinity);//l sets asymptotic for small r (as r^(l_asymp)), num_func is number of basis functions
-	~FormFactor();
-
-	//density[infinity] < 10^-15
-	double getFF(double Q); //returns least square expansion coefficients
-	vector<double> getAllFF();
-	vector<double> getAllQ() { return Q_mesh; }
-protected:
-	Grid lattice;//dense lattice
-	vector<double> iDensity;//interpolated density
-	double Q0 = 0;
-	vector<double> Q_mesh;
-};

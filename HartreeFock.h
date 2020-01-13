@@ -24,7 +24,7 @@ public:
 	double Conf_En(vector<RadialWF> &Orbitals, Potential &U);
 	// Some electrons occupy virtual orbitals.
 	double Conf_En(vector<RadialWF> &Orbitals, vector<RadialWF> &Virtual, Potential &U);
-	// Primitive hybridisat induced by uniform field E_at_nuc. Same idea as CI.
+	// Primitive hybridisation induced by uniform field E_at_nuc. Same idea as CI.
 	CustomDataType::polarize Hybrid(vector<RadialWF> &Orbitals, vector<RadialWF> &Virtual, Potential &U);
 
 

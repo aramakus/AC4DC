@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 
 	if (tail == ".txt") {
 
-		// Molecular input.
+		// Molecular input. Default case.
 
 		MolInp Init(argv[1], log);
 		
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
 			string name = Init.Store[a].name;
 			double nAtoms = Init.Store[a].nAtoms;
-      vector<bool> args = {Init.Calc_R_ion(), Init.Calc_Pol_ion(), Init.Calc_FF_ion()}; // Save auxiliary data.
+      vector<bool> args = {Init.Calc_Pol_ion()}; // Save auxiliary data.
 
 			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log, args);
 			Init.Store[a].name = name;
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     
 		} else {
 
-		// Atomic input.
+		// Atomic input. 
 
 		Grid Lattice(0);//dummy grid. Will be modified by configuration class
 		vector<RadialWF> Orbitals;
@@ -114,23 +114,9 @@ int main(int argc, char *argv[])
 			}
 
 			if (Virtual.size() != 0) Dynamics.SolveFrozen(Virtual, max_occ, final_occ, log);
-			else {
-				Dynamics.SolveFrozen(max_occ, final_occ, log);//Dynamics.SolvePlasmaBEB(max_occ, final_occ, log);//
-				//Dynamics.SetupAndSolve(log);
-			}
-			//vector<RateEquationSolver> Solutions({ Dynamics });
-			// The problem is with time integration. Check the mesh and the nucmer of points.
-		//	DamageMatrix Modes(Solutions, Lattice);
-			/*
-			RateEquationSolver Dynamics2(Lattice, Orbitals2, U2, Init2);
-			vector<int> final_occ2(Orbitals2.size(), 0);
-			vector<int> max_occ2(Orbitals2.size(), 0);
-			for (int i = 0; i < max_occ2.size(); i++) {
-				//if (fabs(Orbitals[i].Energy) > Init.Omega()) final_occ[i] =  Orbitals[i].occupancy();
-				max_occ2[i] = Orbitals2[i].occupancy();
-			}
-			if (Virtual.size() != 0) Dynamics2.SolveFrozen(Virtual, max_occ2, final_occ2, log);
-			else Dynamics2.SolveFrozen(max_occ2, final_occ2, log);*/
+			else Dynamics.SolveFrozen(max_occ, final_occ, log);
+
+			Dynamics.SetupAndSolve(log);
 		} else {
 			HF.LDA_Get_Virtual(Virtual, Orbitals, U, log);
 			// Polarizability calculation. Average over configuration estimate.	
@@ -157,7 +143,6 @@ int main(int argc, char *argv[])
 			DecayRates test(Lattice, Orbitals, U, Init);
 			
 		}
-
 	}
 
 

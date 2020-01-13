@@ -72,11 +72,10 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
-    	vector<pair<double, int>> LocalRMS(0);
 
 		omp_set_num_threads(7);
 		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht, conf_RMS) private(Tmp, Max_occ, LocalRMS, LocalPhoto, LocalAuger, LocalFluor)
+		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -94,9 +93,6 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input.Hamiltonian(), runlog);
 				
-        // Root mean square radius of atoms.
-        MatrixElems Aux(&lattice);
-        LocalRMS.push_back(pair<double, int>(sqrt(Aux.R_pow_k(Orbitals, 2)), i));
 				DecayRates Transit(lattice, Orbitals, u, input);
 
 				Tmp.from = i;
@@ -147,16 +143,12 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-        conf_RMS.insert(conf_RMS.end(), LocalRMS.begin(), LocalRMS.end());
-				//FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-    sort(conf_RMS.begin(), conf_RMS.end(), [](pair<double, int> A, pair<double, int> B) 
-    { return (A.second < B.second); });
 		GenerateRateKeys(Store.Auger);
 		
 		if (existPht) {
@@ -190,21 +182,6 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		config_out << endl;
 	}
   config_out.close();
-
-  string rms_name = "./output/" + input.Name() + "_RMS.txt";
-  ofstream rms_out(rms_name);
-	rms_out << 0 << " " << conf_RMS[0].first << " " << input.Nuclear_Z() << endl;
-	if (0 != input.TimePts()) {
-		double ini_Width = input.Width();
-		for (int n = 0; n < 20; n++) {
-		SetupAndSolve(runlog);
-		rms_out << input.Width() << " " << T_avg_RMS(conf_RMS) << " " << T_avg_Charge();
-		if (n != 19) rms_out << endl;
-		input.Set_Width((input.Width()+ini_Width));
-		}
-	}
-	else runlog << "Numbur of time points = 0. Skipping rate equation." << endl;
-  rms_out.close();
 
  	return dimension;
 }
@@ -567,65 +544,6 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		config_out << endl;
 	}
 
-  // Ionic radii - calculate and store.
-  if (args[0]) {
-    int fin = lattice.size() - 2; // Last value (integer) is used for sorting in the original densities.
-    vector<double> integrand(lattice.size(), 0);
-    Adams NI(lattice, 6);
-    AtomAuxStore.r_ion.clear();
-    AtomAuxStore.r_ion.resize(density.size());
-
-    for (int j = 0; j < density.size(); j++) {
-      fin = lattice.size() - 2;
-      while (density[j][fin] == 0) fin--;
-      for (int i = 0; i < lattice.size(); i++) integrand[i] = lattice.R(i) * density[j][i];
-
-      AtomAuxStore.r_ion[j] = NI.Integrate(&integrand, 0, fin)/NI.Integrate(&density[j], 0, fin);
-    }
-  }
-
-
-
-  // Form-factors - calculate and store.
-  if (args[2]) {
-    int fin = lattice.size() - 2; // Last value (integer) is used for sorting in the original densities.
-    vector<double> integrand(lattice.size(), 0);
-
-		ffactor FF_tmp;
-		vector<ffactor> LocalFF(0);
-    vector<ffactor> GlobalFF(0);
-
-    #pragma omp parallel default(none) \
-		shared(GlobalFF) \
-		private(fin, LocalFF, FF_tmp)
-		{
-			#pragma omp for schedule(dynamic) nowait
-			for (int n = 0; n < density.size(); n++)// Calculate form-factor for atomic densities in parallel.
-			{
-        fin = lattice.size() - 2;
-        while (density[n][fin] == 0) fin--;
-
-        FormFactor W(lattice, density[n], fin);
-        FF_tmp.index = n;
-        FF_tmp.val = W.getAllFF();
-        LocalFF.push_back(FF_tmp);
-      }
-
-      #pragma omp critical
-			{
-				GlobalFF.insert(GlobalFF.end(), LocalFF.begin(), LocalFF.end());
-			}
-    }
-
-    sort(GlobalFF.begin(), GlobalFF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
-    
-    AtomAuxStore.form_fact_ion.clear();
-    AtomAuxStore.form_fact_ion.resize(density.size());
-
-    for (int n = 0; n < density.size(); n++) AtomAuxStore.form_fact_ion[n] = GlobalFF[n].val;
-  }
-
-
  	return Store;
 }
 
@@ -966,9 +884,8 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 		}
 		Intensity = generate_I(T, fluence, Sigma);
 		//SmoothOrigin(T, Intensity);
-		//Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
-		converged = Calc.Solve( 0, 1, out_T_size);//(Mxwll,
+		converged = Calc.Solve(0, 1, out_T_size);
 		if (converged == 0)
 		{
 			cout << "Final number of time steps: " << T_size << endl;
@@ -1029,16 +946,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 
 	intensity_out.close();
 	charge_out.close();
-	
-  /*
-	FILE * fl;
-	fl = fopen("./output/Plasma.txt", "w");
-	int cnt = Mxwll.N.size()/T.size();
-	for (int m = 0; m < T.size(); m++) {
-		fprintf(fl, "%3.5e %3.5e %3.5f %3.5f\n", Mxwll.E[m*cnt], Mxwll.N[m*cnt], Mxwll.Np[m*cnt], T[m]);
-	}
-	fclose(fl);
-  */
+
 	return 0;
 }
 
@@ -1111,17 +1019,17 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 	string IntensityName = "./output/Intensity_" + Input.name + ".txt";
 
   // Output intensity profile.
-	//ofstream intensity_out(IntensityName);
+	ofstream intensity_out(IntensityName);
 	double I_max = *max_element(begin(Intensity), end(Intensity));
   int MidT = 0;
   while (Intensity[MidT] != I_max && MidT < T.size()) MidT++;
   double MidTval = T[MidT];
 	for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-MidTval)*Constant::fs_in_au;
-		//dT[m] *= Constant::fs_in_au;
-		//intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
+		dT[m] *= Constant::fs_in_au;
+		intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
 	}
-	//intensity_out.close();
+	intensity_out.close();
 
 	int shift = 0;
 	vector<int> P_to_charge(0);
@@ -1130,10 +1038,6 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
   
   // Charges.
   vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
-  // Ionic radius.
-  vector<vector<double>> R_ion(Input.Atomic.size(), vector<double>(T.size(), 0) );
-  // Form-factor
-  vector<vector<ffactor>> FF(Input.Atomic.size(), vector<ffactor>(T.size()));
   
 	for (int a = 0; a < Input.Atomic.size(); a++) {
 		
@@ -1142,28 +1046,6 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 		for (int i = 0; i < Input.Store[a].num_conf; i++) {
 			map_p[a].push_back(P[i + shift].data());
 		}
-
-    for (int m = 0; m < T.size(); m++) {
-      for (int i = 0; i < Input.Store[a].num_conf; i++) {
-        R_ion[a][m] += Input.AuxStore[a].r_ion[i] * *(map_p[a][i] + m);
-      }
-    }
-
-    for (int m = 0; m < T.size(); m++) {
-      FF[a][m].val.clear();
-      FF[a][m].val.resize(Input.AuxStore[a].form_fact_ion[0].size(), 0);
-      FF[a][m].index = a;
-
-      for (int i = 0; i < Input.Store[a].num_conf-1; i++) {
-        for (int q = 0; q < Input.AuxStore[a].form_fact_ion[0].size(); q++) {
-          FF[a][m].val[q] += Input.AuxStore[a].form_fact_ion[i][q] * *(map_p[a][i] + m);
-        }
-      }
-    }
-
-		//string ChargeName = "./output/Charge_" + Input.Store[a].name + ".txt";
-		
-		//ofstream charge_out(ChargeName);
 
 		// Work out charges of all configurations.
 		double chrg_tmp = 0;
@@ -1184,82 +1066,42 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += *(map_p[a][i] + m);
 		}		
 
-    // Data for Harry.
     for (int m = 0; m < T.size(); m++) {
 			for (int i = 1; i < charge.size(); i++) {
         AllAtomCharge[a][m] += i*charge[i][m];
       }
     }
-    /*
-		for (int m = 0; m < T.size(); m++) {
-			for (int i = 0; i < charge.size(); i++) {
-				chrg_tmp = charge[i][m];
-				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-				else charge_out << chrg_tmp << " ";			
-			}
-			
-			charge_out << T[m] << endl;
-		}
-    */
 
-		//charge_out.close();
 		shift += Input.Store[a].num_conf;
 	}
 
   /*
+	// All plasma parameters, uncomment if required.
 	FILE * fl;
 	fl = fopen("./output/Plasma.txt", "w");
   int size = 500;
 	int cnt = Mxwll.N.size()/size;//T.size();
 	for (int m = 0; m < T.size(); m++) {
-		fprintf(fl, "%3.5e %3.5e %3.5e %3.5f\n", Mxwll.E[m], Mxwll.N[m], Mxwll.Np[m], T[m]);//Mxwll.Np[m*cnt]
+		fprintf(fl, "%3.5e %3.5e %3.5e %3.5f\n", Mxwll.E[m], Mxwll.N[m], Mxwll.Np[m], T[m]);
 	}
-
-	fclose(fl);*/
-  {
-    string MD_Data = "./output/MD_Data.txt";
-    ofstream OutFile(MD_Data);
-    OutFile << T.size() << endl;
-    OutFile << "Time ";
-    for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
-    OutFile << "N(elec) E(elec)";
-    for (int m = 0; m < T.size(); m++) {
-      OutFile << endl << T[m] << " ";
-      for (int a = 0; a < AllAtomCharge.size(); a++) {
-        OutFile << AllAtomCharge[a][m] << " ";
-      }
-      if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
-      else OutFile << 0 << " " << 0;
-    }
-  }
-
-  {
-    string FF_Data = "./output/FF_Data.txt";
-    ofstream OutFile(FF_Data);
-    OutFile << "Time-dependent form factors.\n";
-    OutFile << "Atomic FF are output by blocks: row index is 'time', column index is 'q' as in 'Q_mesh'.\n";
-    OutFile << "line 1 : atomic proton numbers. Matches number of blocks.\n";
-    OutFile << "line 2 : Q_mesh. Matches umber of columns.\n";
-
-    for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
-    OutFile << "\n";
-    FormFactor W(lattice, charge[0], 0); // Dummy initialization to retrive Q_mesh.
-    vector<double> Q_mesh = W.getAllQ();
-    for (auto & q: Q_mesh) OutFile << q << " ";
-
-    for (int a = 0; a < Input.AuxStore.size(); a++) {
-      OutFile << "\n";
-      for (int m = 0; m < T.size(); m++) {
-        double * pVal = FF[a][m].val.data();
-        OutFile << "\n"; 
-        for (int q = 0; q < Q_mesh.size(); q++) {
-          OutFile << *(pVal + q) << " ";
-        }  
-      }
-    }
-  }
-
-
+	fclose(fl);
+	*/
+  
+	string MD_Data = "./output/MD_Data.txt";
+	ofstream OutFile(MD_Data);
+	OutFile << T.size() << endl;
+	OutFile << "Time ";
+	for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
+	OutFile << "N(elec) E(elec)";
+	for (int m = 0; m < T.size(); m++) {
+		OutFile << endl << T[m] << " ";
+		for (int a = 0; a < AllAtomCharge.size(); a++) {
+			OutFile << AllAtomCharge[a][m] << " ";
+		}
+		if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
+		else OutFile << 0 << " " << 0;
+	}
+  
 	return 0;
 }
 
