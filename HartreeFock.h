@@ -7,6 +7,7 @@
 #include <fstream>
 #include "Numerics.h"
 #include "Constant.h"
+#include "Input.h"
 
 using namespace std;
 
@@ -15,7 +16,7 @@ class HartreeFock
 {
 public:
 //	HamMod = 0 - Hartree-Fock; 1 - LDA.
-	HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, int HamMod, ofstream &log);
+	HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream &log);
 
 	int Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log);
 	int LDA_Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log);

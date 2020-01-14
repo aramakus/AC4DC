@@ -3,7 +3,7 @@
 #include <sstream>
 #include <map>
 
-Input::Input(char *filename, vector<RadialWF> &Orbitals, vector<RadialWF> &Virtual, Grid &Lattice, ofstream & log)
+Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log)
 {
 	log << "Input file: " << filename << endl;
 
@@ -12,8 +12,6 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, vector<RadialWF> &Virtu
 	if (lastdot != std::string::npos) name = name.substr(0, lastdot);
 	size_t lastslash = name.find_last_of("/");
 	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
-
-	log << "Input file: " << filename << endl;
 
 	ifstream infile(filename);
 
@@ -86,29 +84,22 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, vector<RadialWF> &Virtu
 			No_exchange_tollerance = pow(10, tmp);
 		}
 		if (n == 8) stream >> max_HF_iterations;
-		if (n == 9) stream >> max_Virt_iterations;
 	}
 
 	for (int n = 0; n < FileContent["#ATOM"].size(); n++) {
 		stringstream stream(FileContent["#ATOM"][n]);
 		if (n == 0) stream >> Z;
-		if (n == 1) stream >> hamiltonian;
+		if (n == 1) stream >> model;
+		if (n == 2) stream >> hamiltonian;
 		if (n == 3) stream >> num_orbitals;
 		if (n > 3 && n < num_orbitals + 4) {
 			char tmp;
 			stream >> N >> tmp >> occupancy;
-			if (occupancy != 0) {
+			if (occupancy == 0) log << "Orbital with N=" << N << ", L=" << angular[tmp] << " has occupancy=0!" << endl;
 				Orbitals.push_back(RadialWF(num_grid_pts));
 				Orbitals.back().set_N(N);
 				Orbitals.back().set_L(angular[tmp]);//setting L overwrites occupancy with 4L+2
 				Orbitals.back().set_occupancy(occupancy);
-			}
-			else {
-				Virtual.push_back(RadialWF(num_grid_pts));
-				Virtual.back().set_N(N);
-				Virtual.back().set_L(angular[tmp]);//setting L overwrites occupancy with 4L+2
-				Virtual.back().set_occupancy(occupancy);
-			}
 		}
 		if (n == num_orbitals + 4) stream >> potential;
 		if (n == num_orbitals + 5) stream >> me_gauge;
@@ -118,125 +109,6 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, vector<RadialWF> &Virtu
 	Lattice = lattice;
 	fluence /= omega/Constant::eV_in_au;
 }
-
-
-
-/*
-Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log)
-{
-	log << "Input file: " << filename << endl;
-
-	name = filename;
-	size_t lastdot = name.find_last_of(".");
-	if (lastdot != std::string::npos) name = name.substr(0, lastdot);
-	size_t lastslash = name.find_last_of("/");
-	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
-
-	ifstream infile(filename);
-	string comment = "//";
-	int line_indentifier = 0, num_grid_pts, num_orbitals, n, current_orbital = 0, occupancy;
-	double r_min, r_box;
-	char angular;
-
-	Orbitals.clear();
-	int line_num = 0;
-
-	while (!infile.eof())
-	{
-		string line;
-		getline(infile, line);
-		line_num++;
-		if (line.compare(0, 2, comment))//skip if comment which starts with "//"
-		{
-			stringstream stream(line);
-			switch (line_indentifier)
-			{
-			case 0:
-				stream >> hamiltonian;
-				line_indentifier++;
-				break;
-			case 1:
-				stream >> Z;
-				line_indentifier++;
-				break;
-			case 2:
-				stream >> model;
-				if (model.compare("sphere")) stream >> r_box;
-				line_indentifier++;
-				break;
-			case 3:
-				stream >> num_grid_pts;
-				line_indentifier++;
-				break;
-			case 4:
-				stream >> r_min;
-				line_indentifier++;
-				break;
-			case 5:
-				stream >> r_box;
-				line_indentifier++;
-				break;
-			case 6:
-				stream >> num_orbitals;
-				line_indentifier++;
-				break;
-			case 7:
-				if (current_orbital < num_orbitals)
-				{
-					current_orbital++;
-					Orbitals.push_back(RadialWF(0));
-					stream >> n >> angular >> occupancy;
-					Orbitals.back().set_N(n);
-					if (angular == 's') n = 0;
-					if (angular == 'p') n = 1;
-					if (angular == 'd') n = 2;
-					if (angular == 'f') n = 3;
-					Orbitals.back().set_L(n);//setting L overwrites occupancy with 4L+2
-					Orbitals.back().set_occupancy(occupancy);
-				}
-				if (current_orbital == num_orbitals) line_indentifier++;
-				break;
-			case 8:
-				stream >> potential;
-				line_indentifier++;
-				break;
-			case 9:
-				stream >> me_gauge;
-				line_indentifier++;
-				break;
-			case 10:
-				stream >> omega;
-				line_indentifier++;
-				break;
-			case 11:
-				stream >> width;
-				line_indentifier++;
-				break;
-			case 12:
-				stream >> fluence;
-				line_indentifier++;
-				break;
-			case 13:
-				stream >> num_time_steps;
-				line_indentifier++;
-				break;
-			case 14:
-				break;
-			default:
-				log << "In Configuration: extra line or comment sign missing in line" << line_num << endl;
-			}
-
-		}
-
-	}
-	infile.close();
-
-	Grid lattice(num_grid_pts, r_min/Z, r_box, "exponential");
-	Lattice = lattice;
-
-	for (int i = 0; i < Orbitals.size(); i++) Orbitals[i].resize(lattice.size());
-}
-*/
 
 Input::Input(const Input & Other)
 {
@@ -249,7 +121,15 @@ Input::Input(const Input & Other)
 	width = Other.width;
 	fluence = Other.fluence;
 	num_time_steps = Other.num_time_steps;
+	omp_threads = Other.omp_threads;
 	Z = Other.Z;
+	write_charges = Other.write_charges;
+	write_intensity = Other.write_intensity;
+	out_time_steps = Other.out_time_steps;
+	Master_tollerance = Other.Master_tollerance;
+	No_exchange_tollerance = Other.No_exchange_tollerance;
+	HF_tollerance = Other.HF_tollerance;
+	max_HF_iterations = Other.max_HF_iterations;
 }
 
 int Input::Hamiltonian()
@@ -282,6 +162,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 		string line;
 		getline(infile, line);
 		if (!line.compare(0, 2, comment)) continue;
+		if (!line.compare(0, 1, "")) continue;
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
@@ -303,20 +184,8 @@ MolInp::MolInp(char* filename, ofstream & log)
 	Atomic.clear();
 	Store.clear();
 	Store.resize(num_atoms);
-  AuxStore.clear();
-	AuxStore.resize(num_atoms);
 	Index.clear();
 	Index.resize(num_atoms);
-
-	for (int n = 0; n < FileContent["#MOLECULE"].size(); n++) {
-		stringstream stream(FileContent["#MOLECULE"][n]);
-    string line_key;
-    stream >> line_key;
-
-		if (n == 0 && line_key == "Y") calculate_r_ion = true;
-		if (n == 1 && line_key == "Y") calculate_pol_ion = true;
-    if (n == 2 && line_key == "Y") calculate_form_fact_ion = true;
-	}
 
 	for (int n = 0; n < FileContent["#VOLUME"].size(); n++) {
 		stringstream stream(FileContent["#VOLUME"][n]);
@@ -335,7 +204,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 	}
   // Convert to number of photon flux.
   fluence /= omega/Constant::eV_in_au;
-
+	
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
@@ -349,8 +218,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 
 		at_name = "input/" + at_name + ".inp";
 
-		vector<RadialWF> Virtual;
-		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Virtual, Latts[i], log) );
+		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
 		Atomic.back().Set_Pulse(omega, fluence, width);
 
 		Potential U(&Latts[i], Atomic[i].Nuclear_Z(), Atomic[i].Pot_Model());

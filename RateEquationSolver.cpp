@@ -28,7 +28,7 @@ lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
 //Orbitals are HF wavefunctions. This configuration is an initial state.
 //Assuming there are no unoccupied states in initial configuration!!!
 }
-
+/*
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of rate equations exactly.
@@ -73,7 +73,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 
-		omp_set_num_threads(7);
+		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
 		{
@@ -91,7 +91,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation. 
 				Potential U(&lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(lattice, Orbitals, U, input.Hamiltonian(), runlog);
+				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 				
 				DecayRates Transit(lattice, Orbitals, u, input);
 
@@ -185,8 +185,8 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
  	return dimension;
 }
-
-int RateEquationSolver::SolveFrozen(vector<RadialWF> & virt, vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+*/
+int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of rate equations exactly.
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.
@@ -218,17 +218,15 @@ int RateEquationSolver::SolveFrozen(vector<RadialWF> & virt, vector<int> Max_occ
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
-		vector<polarize> LocalMixMe(0);
 
-		omp_set_num_threads(7);
+		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
-		shared(cout, virt, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor,  LocalMixMe)
+		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				vector<RadialWF> Virtual = virt;
 				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++)
@@ -238,11 +236,7 @@ int RateEquationSolver::SolveFrozen(vector<RadialWF> & virt, vector<int> Max_occ
 				}
 				Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				Potential U(&Lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(Lattice, Orbitals, U, input.Hamiltonian(), runlog);
-				HF.Get_Virtual(Virtual, Orbitals, U, runlog);
-				
-				LocalMixMe.push_back(HF.Hybrid(Orbitals,Virtual,U));
-				LocalMixMe.back().index = i;
+				HartreeFock HF(Lattice, Orbitals, U, input, runlog);
 
 				DecayRates Transit(Lattice, Orbitals, u, input);
 
@@ -331,24 +325,10 @@ int RateEquationSolver::SolveFrozen(vector<RadialWF> & virt, vector<int> Max_occ
 		config_out << endl;
 	}
 
-	if (0 != input.TimePts()) {
-		SetupAndSolve(runlog);
-
-		vector<double> Displace = PerturbMe(virt, 4, 0.00001);
-
-		string DipoleOut = "./output/" + input.Name() + "/Ravg.txt";
-		ofstream Dist(DipoleOut);
-		for (int m = 0; m < T.size(); m++) {
-			Dist << Displace[m] << " " << T[m] << endl;
-		}
-		Dist.close();
-	}
-	else runlog << "Numbur of time points = 0. Skipping rate equation." << endl;
-
  	return dimension;
 }
 
-AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog, vector<bool> args)
+AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of Atomic rate equations + Temperature and electron concentration in Plasma exactly.
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.
@@ -403,12 +383,11 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<EIIdata> LocalEIIparams(0);
 
 		density.clear();
-		vector<vector<double>> Loc_dens;
 
-		omp_set_num_threads(7);
+		omp_set_num_threads(input.Num_Threads());
 	  #pragma omp parallel default(none) \
-		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht, args) \
-		private(Tmp, Max_occ,  LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, Loc_dens, tmpEIIparams)
+		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
+		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -423,12 +402,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation. 
 				Potential U(&lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(lattice, Orbitals, U, input.Hamiltonian(), runlog);
-
-				if (args[0] || args[1]) {
-					Loc_dens.push_back(U.make_density(Orbitals) );
-					Loc_dens.back().back() = i; // Last element is used for sorting, set to 0 afterwards.
-				}
+				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 
 				// EII parameters to store for Later BEB model calculation.
 				tmpEIIparams.init = i;
@@ -503,14 +477,12 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
-				if (Loc_dens.size() != 0) density.insert(density.end(), Loc_dens.begin(), Loc_dens.end());
 			}
 		}
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-    sort(density.begin(), density.end(), [](vector<double> A, vector<double> B) { return (A.back() < B.back()); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 				
@@ -617,243 +589,7 @@ int RateEquationSolver::Symbolic(const string & input, const string & output)
 
 }
 
-vector<double> RateEquationSolver::PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit = 0)
-{
-	// Two identical atoms are separated by Dist (in a.u.).
-	// As they ionize, they create time dependent electric field
-	// that distorts their electronic configurations.
-	// This functions calculates the field at the nucleus of atom 1
-	// created by the atom 2. The field is assumed to be homogenous, and a 
-	// small version of CI is calculated. 
-	// The function returns a position of charge centroid relative to the nucleus as a function of time.
-	vector<double> Result(T.size(), 0);
-	vector<double> Efield(T.size(), 0);
-	vector<vector<double>> PrevTVec(0);// Reference eigenvector to keep track of ground state configuration.
-	vector<RadialWF*> OrbList(0);
-	for (auto& Orb: orbitals) OrbList.push_back(&Orb);
-	for (auto& Vrt: Virtual) OrbList.push_back(&Vrt);
-
-	// Calculate time dependent Efield at nucleus position Dist. For now it is fixed thorugh the pulse.
-	double tmp = 0;
-	for (int m = 0; m < T.size(); m++) {
-		tmp = 0;
-		for (int Z = 0; Z < charge.size(); Z++) {
-			tmp -= Z*charge[Z][m];
-		}
-		Efield[m] = tmp/Dist/Dist - Einit;
-	}
-	// For each configuration i run the configuration mixing for given Efield[m].
-	// Multiply by P[i][m] and store.
-	double wght = 0; // Weight factor accounts for fractional occupancies.
-	int g = 0;// Ground state orbital to be mixed.
-	int e = 0;// Excited state orbital to be mixed.
-	for (int m = 0; m < T.size(); m++) {
-		for (int N = 0; N < MixMe.size(); N++) {
-			int L = MixMe[N].excited.size()+1;
-			vector<vector<double>> Fock(L, vector<double>(L, 0));
-			vector<vector<double>> Overlap(L, vector<double>(L, 0));
-
-			Fock[0][0] = MixMe[N].refEnergy;
-			Overlap[0][0] = 1;
-			for (int i = 1; i < L; i++) {
-				g = MixMe[N].excited[i-1][0];
-				e = MixMe[N].excited[i-1][1];
-				/*wght = sqrt(0.5*MixMe[N].reference[g]*(4*OrbList[e]->L() + 2 - OrbList[e]->occupancy())
-					   /(2*OrbList[e]->L() + 1));//(2*OrbList[g]->L() + 1)*/
-				// wght is adjusted to match polarizability calculation in ground state.
-				wght = 2*OrbList[g]->occupancy()*(1 - 1.*OrbList[e]->occupancy()/(4*OrbList[e]->L() + 2))/3/(2*OrbList[g]->L() + 1);
-				wght = sqrt(wght);
-				Overlap[i][i] = 1;
-				Fock[0][i] = -Efield[m]*wght*MixMe[N].Dipoles[i-1];
-				Fock[i][0] = Fock[0][i];
-				Fock[i][i] = MixMe[N].extEnergy[i-1];
-			}
-			if (m == 0 && MixMe[N].index == 0) {
-				double Pol = 0;
-				for (int i = 1; i < L; i++) {
-					Pol -= Fock[0][i]*Fock[0][i]/(Fock[0][0] - Fock[i][i]);
-				}
-				cout << "Polarizability estimate: " << Pol/Efield[0]/Efield[0] << endl;
-			}
-
-			EigenSolver W;
-			W.SolveGenEig(Fock, Overlap);
-
-			vector<double> Vals(W.EigenVals());
-			vector<vector<double>> Vecs(W.EigenVecs());
-
-			double Zavg = 0;//<Z> - expectation value of the charge diplacement
-			int g = 0;
-			if (m == 0) {
-				// Find the state with a highest fraction of the original reference state.
-				tmp = Vecs[0][0]*Vecs[0][0];
-				for (int i = 1; i < Vals.size(); i++) {
-					if (Vecs[i][0]*Vecs[i][0] > tmp) {
-						tmp = Vecs[i][0]*Vecs[i][0];
-						g = i;
-					}
-				}
-				// Store this vector for the reference.
-				PrevTVec.push_back(Vecs[g]);
-			}
-			else {
-				// Compare the eigenvectors at T(m) to the reference one at T(m-1),
-				// find the one with the largest scalar product and assign "g" to it.
-				// If T(m) - T(m-1) is small the correlation should be about 1.
-				double MaxCorr = 0;
-				for (int i = 0; i < Vals.size(); i++) {
-					MaxCorr += Vecs[0][i]*PrevTVec[N][i];
-				}
-				for (int i = 1; i < Vals.size(); i++) {
-					tmp = 0;
-					for (int j = 0; j < Vals.size(); j++) {
-						tmp += Vecs[i][j]*PrevTVec[N][j];
-					}
-					if (fabs(tmp) > fabs(MaxCorr)) {
-						MaxCorr = tmp;
-						g = i;
-					}
-				}
-				if (MaxCorr < 0) {
-					for (int j = 0; j < Vals.size(); j++) Vecs[g][j] = -Vecs[g][j];
-				}
-				// Update PrevTVec.
-				PrevTVec[N] = Vecs[g];
-			}
-
-			int k = 0;
-			// Calculate Zavg for that state
-			for (int i = 1; i < Vals.size(); i++) {
-				k = MixMe[N].excited[i-1][0];
-				e = MixMe[N].excited[i-1][1];
-				/*wght = 0.25*MixMe[N].reference[k]*(4*OrbList[e]->L() + 2 - OrbList[e]->occupancy())
-					   /(2*OrbList[k]->L() + 1)/(2*OrbList[e]->L() + 1);*/
-				wght = 2*OrbList[g]->occupancy()*(1 - 1.*OrbList[e]->occupancy()/(4*OrbList[e]->L() + 2))/3/(2*OrbList[g]->L() + 1);
-				wght = sqrt(wght);
-				Zavg += 2*Vecs[g][i]*MixMe[N].Dipoles[i-1]*wght;
-			}
-			Result[m] += P[MixMe[N].index][m]*Zavg;
-		} 
-	}
-
-	return Result;
-}
-
-vector<double> RateEquationSolver::Secular(vector<RadialWF> & Virtual, double Dist, double Einit = 0)
-{
-	// Alternative perturbation theory. Designed for Ilme project.
-	// Two identical atoms are separated by Dist (in a.u.).
-	// As they ionize, they create time dependent electric field
-	// that distorts their electronic configurations.
-	// This functions calculates the field at the nucleus of atom 1
-	// created by the atom 2. The field is assumed to be homogenous, and a 
-	// small version of CI is calculated. 
-	// The function returns a position of charge centroid relative to the nucleus as a function of time.
-	vector<double> Result(T.size(), 0);
-	vector<double> Efield(T.size(), 0);
-	vector<vector<double>> PrevTVec(0);// Reference eigenvector to keep track of ground state configuration.
-	vector<RadialWF*> OrbList(0);
-	for (auto& Orb: orbitals) OrbList.push_back(&Orb);
-	for (auto& Vrt: Virtual) OrbList.push_back(&Vrt);
-
-	// Calculate time dependent Efield at nucleus position Dist. For now it is fixed thorugh the pulse.
-	double tmp = 0;
-	for (int m = 0; m < T.size(); m++) {
-		tmp = 0;
-		for (int Z = 0; Z < charge.size(); Z++) {
-			tmp -= Z*charge[Z][m];
-		}
-		Efield[m] = tmp/Dist/Dist - Einit;
-	}
-	// For each configuration i run the configuration mixing for given Efield[m].
-	// Multiply by P[i][m] and store.
-	double wght = 0; // Weight factor accounts for fractional occupancies.
-	int g = 0;// Ground state orbital to be mixed.
-	int e = 0;// Excited state orbital to be mixed.
-	for (int m = 0; m < T.size(); m++) {
-		for (int N = 0; N < MixMe.size(); N++) {
-			// Locate semi-degenerate states.
-			int L = MixMe[N].excited.size()+1;
-
-			vector<vector<double>> Fock(L, vector<double>(L, 0));
-			vector<vector<double>> Overlap(L, vector<double>(L, 0));
-
-			Fock[0][0] = MixMe[N].refEnergy;
-			Overlap[0][0] = 1;
-			for (int i = 1; i < L; i++) {
-				g = MixMe[N].excited[i-1][0];
-				e = MixMe[N].excited[i-1][1];
-				wght = sqrt(0.5*MixMe[N].reference[g]*(4*OrbList[e]->L() + 2 - OrbList[e]->occupancy())
-					   /(2*OrbList[e]->L() + 1));//(2*OrbList[g]->L() + 1)
-				wght = sqrt(wght);
-				Overlap[i][i] = 1;
-				Fock[0][i] = -Efield[m]*wght*MixMe[N].Dipoles[i-1];
-				Fock[i][0] = Fock[0][i];
-				Fock[i][i] = MixMe[N].extEnergy[i-1];
-			}
-			EigenSolver W;
-			W.SolveGenEig(Fock, Overlap);
-
-			vector<double> Vals(W.EigenVals());
-			vector<vector<double>> Vecs(W.EigenVecs());
-
-			double Zavg = 0;//<Z> - expectation value of the charge diplacement
-			int g = 0;
-			if (m == 0) {
-				// Find the state with a highest fraction of the original reference state.
-				tmp = Vecs[0][0]*Vecs[0][0];
-				for (int i = 1; i < Vals.size(); i++) {
-					if (Vecs[i][0]*Vecs[i][0] > tmp) {
-						tmp = Vecs[i][0]*Vecs[i][0];
-						g = i;
-					}
-				}
-				// Store this vector for the reference.
-				PrevTVec.push_back(Vecs[g]);
-			}
-			else {
-				// Compare the eigenvectors at T(m) to the reference one at T(m-1),
-				// find the one with the largest scalar product and assign "g" to it.
-				// If T(m) - T(m-1) is small the correlation should be about 1.
-				double MaxCorr = 0;
-				for (int i = 0; i < Vals.size(); i++) {
-					MaxCorr += Vecs[0][i]*PrevTVec[N][i];
-				}
-				for (int i = 1; i < Vals.size(); i++) {
-					tmp = 0;
-					for (int j = 0; j < Vals.size(); j++) {
-						tmp += Vecs[i][j]*PrevTVec[N][j];
-					}
-					if (fabs(tmp) > fabs(MaxCorr)) {
-						MaxCorr = tmp;
-						g = i;
-					}
-				}
-				if (MaxCorr < 0) {
-					for (int j = 0; j < Vals.size(); j++) Vecs[g][j] = -Vecs[g][j];
-				}
-				// Update PrevTVec.
-				PrevTVec[N] = Vecs[g];
-			}
-
-			int k = 0;
-			// Calculate Zavg for that state
-			for (int i = 1; i < Vals.size(); i++) {
-				k = MixMe[N].excited[i-1][0];
-				e = MixMe[N].excited[i-1][1];
-				wght = sqrt(0.25*MixMe[N].reference[k]*(4*OrbList[e]->L() + 2 - OrbList[e]->occupancy())
-					   /(2*OrbList[k]->L() + 1)/(2*OrbList[e]->L() + 1));
-				Zavg += 2*Vecs[g][i]*MixMe[N].Dipoles[i-1]*wght;
-			}
-			Result[m] += P[MixMe[N].index][m]*Zavg;
-		}
-	}
-
-	return Result;
-}
-
-
-int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
+int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 {
 	// initial conditions for rate equation
 	// first index represents the configuration
@@ -885,7 +621,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 		Intensity = generate_I(T, fluence, Sigma);
 		//SmoothOrigin(T, Intensity);
 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
-		converged = Calc.Solve(0, 1, out_T_size);
+		converged = Calc.Solve(0, 1, input.Out_T_size());
 		if (converged == 0)
 		{
 			cout << "Final number of time steps: " << T_size << endl;
@@ -923,35 +659,46 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog, int out_T_size)
 	}
 	
 	double t_tmp = 0;
-	string ChargeName = "./output/Charge_" + input.Name() + ".txt";
-	string IntensityName = "./output/Intensity_" + input.Name() + ".txt";
-	ofstream charge_out(ChargeName);
-	ofstream intensity_out(IntensityName);
-
-	double chrg_tmp = 0;
-	double I_max = *max_element(begin(Intensity), end(Intensity));
-	for (int m = 0; m < T.size(); m++) {
+		for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
 		dT[m] *= Constant::fs_in_au;
-		intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
-
-		for (int i = 0; i < charge.size(); i++) {
-			chrg_tmp = charge[i][m];
-			if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-			else charge_out << chrg_tmp << " ";			
-		}
-		
-		charge_out << T[m] << endl;
 	}
 
-	intensity_out.close();
-	charge_out.close();
+	if (input.Write_Charges()) {
+		string ChargeName = "./output/Charge_" + input.Name() + ".txt";
+		ofstream charge_out(ChargeName);
+		double chrg_tmp = 0;
+		for (int m = 0; m < T.size(); m++) {
+			for (int i = 0; i < charge.size(); i++) {
+				chrg_tmp = charge[i][m];
+				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
+				else charge_out << chrg_tmp << " ";			
+			}
+			charge_out << T[m] << endl;
+		}
+		
+		charge_out.close();
+	}
+
+	if (input.Write_Intensity()) {
+		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";	
+		ofstream intensity_out(IntensityName);
+		
+		double I_max = *max_element(begin(Intensity), end(Intensity));
+		for (int m = 0; m < T.size(); m++) {
+			intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
+		}
+
+		intensity_out.close();
+	}
+
+	
 
 	return 0;
 }
 
 
-int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out_T_size)
+int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 {
 	// initial conditions for rate equation
 	// first index represents the configuration
@@ -974,7 +721,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 		dT = generate_dT(T_size);
 		T.clear();
 		T = generate_T(dT);
-		scaling_T = 2.666*input.Width()/Constant::fs_in_au / T.back();//4
+		scaling_T = 4*input.Width()/Constant::fs_in_au / T.back();
 		for (int i = 0; i < T.size(); i++) {
       //T[i] = T[i]-0.5*T.back();
 			T[i] *= scaling_T;
@@ -983,8 +730,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 		Intensity = generate_I(T, fluence, Sigma);
     
     // Extend mesh to 100 fs (extra 20fs added as pulse starts at -20fs).
-    extend_I(Intensity,120/Constant::fs_in_au, dT.back());
-    
+        
 		//SmoothOrigin(T, Intensity);
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
@@ -997,10 +743,10 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 		{
 			cout << "Final number of time steps: " << T_size << endl;
 			P = Calc.GetP();
-		//	T.clear();
-		//	T = Calc.GetT();
-		//	dT.clear();
-		//	dT = generate_dT(T.size());
+			T.clear();
+			T = Calc.GetT();
+			dT.clear();
+			dT = generate_dT(T.size());
 		}
 		else
 		{
@@ -1009,17 +755,10 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 		}
 	}
 	
-	// TODO: adjust charge calculations as they are adapted for a single atom!!!
-
-//	Intensity.clear();
-//	Intensity = generate_I(T, fluence, Sigma);
+	Intensity.clear();
+	Intensity = generate_I(T, fluence, Sigma);
 
 	double t_tmp = 0;
-
-	string IntensityName = "./output/Intensity_" + Input.name + ".txt";
-
-  // Output intensity profile.
-	ofstream intensity_out(IntensityName);
 	double I_max = *max_element(begin(Intensity), end(Intensity));
   int MidT = 0;
   while (Intensity[MidT] != I_max && MidT < T.size()) MidT++;
@@ -1027,15 +766,25 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 	for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-MidTval)*Constant::fs_in_au;
 		dT[m] *= Constant::fs_in_au;
-		intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
 	}
-	intensity_out.close();
+
+	if (input.Write_Intensity()) {
+		// Output intensity profile.
+		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
+		ofstream intensity_out(IntensityName);
+
+		for (int m = 0; m < T.size(); m++) {
+			T[m] = (T[m]-MidTval)*Constant::fs_in_au;
+			dT[m] *= Constant::fs_in_au;
+			intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
+		}
+		intensity_out.close();
+	}
 
 	int shift = 0;
 	vector<int> P_to_charge(0);
 
   // Aggregate and output charges, plasma parameters, and other parameters into an output.
-  
   // Charges.
   vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
   
@@ -1074,19 +823,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog, int out
 
 		shift += Input.Store[a].num_conf;
 	}
-
-  /*
-	// All plasma parameters, uncomment if required.
-	FILE * fl;
-	fl = fopen("./output/Plasma.txt", "w");
-  int size = 500;
-	int cnt = Mxwll.N.size()/size;//T.size();
-	for (int m = 0; m < T.size(); m++) {
-		fprintf(fl, "%3.5e %3.5e %3.5e %3.5f\n", Mxwll.E[m], Mxwll.N[m], Mxwll.Np[m], T[m]);
-	}
-	fclose(fl);
-	*/
-  
+ 
 	string MD_Data = "./output/MD_Data.txt";
 	ofstream OutFile(MD_Data);
 	OutFile << T.size() << endl;

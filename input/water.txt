@@ -1,17 +1,15 @@
-#MOLECULE
-// Input for atom/plasma dynamics calculation. Various auxiliary data.
-Y            // Calculate ionic radius.
-N            // Calculate ionic scalar polarizability.
-Y            // Calculate ionic form-factors. 
 #ATOM
 H 2 
-O 1 
+O 1
+
 #VOLUME
 201.8        // Volume per molecule in atomic units.
+
 #PULSE
-7140         // Photon energy in eV.
+8000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 5            // Pulse fluence in 10^4 * J/cm^2.
 4000         // Initial guess for number of time step points for rate equation.
+
 #OUTPUT
 // Description of the output. Default: Charge_(atom name).txt (for each atom), Intensity.txt, Plasma.txt.

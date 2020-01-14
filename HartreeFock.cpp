@@ -6,7 +6,7 @@ using namespace std;
 int SetBoundaryValues(Grid*, RadialWF*, Potential*);
 int SetBoundaryValuesApprox(Grid*, RadialWF*, Potential*);
 
-HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &Potential, int HamMod, ofstream & log) : lattice(&Lattice)
+HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &Potential, Input & Inp, ofstream & log) : lattice(&Lattice)
 {
 //==========================================================================================================
 // Estimate starting energies using Slater rules.
@@ -41,6 +41,10 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
 // only one electron (hydrogenic case) solve problem.
+	Master_tollerance = Inp.Master_toll();
+	No_exchange_tollerance = Inp.No_Exch_toll();
+	HF_tollerance = Inp.HF_toll();
+	max_HF_iterations = Inp.max_HF_iters();
 
 	double Norm = 0.;
 	vector<double> E_rel_change(Orbitals.size(), 1);
@@ -79,7 +83,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	vector<double> V_old = Potential.V;
 	double V_tmp = 0;
 
-	if (check_orb == 1 && Orbitals[single].occupancy() > 1 && HamMod == 0) {
+	if (check_orb == 1 && Orbitals[single].occupancy() > 1 && Inp.Hamiltonian() == 0) {
 		// A single occupied orbital. HF (with Exchange) solution is here.
 		// Afterwards unoccupied orbitals are calculated.
 		for (int i = 0; i < Orbitals.size(); i++) {
@@ -119,7 +123,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		// Algorithm follows W. Johnson, but with Local Exchange.
 
 		double LDA_tollerance = No_exchange_tollerance;
-		if (HamMod == 1) LDA_tollerance = HF_tollerance;
+		if (Inp.Hamiltonian() == 1) LDA_tollerance = HF_tollerance;
 		else LDA_tollerance = No_exchange_tollerance;
 		bool Final_Check = false;
 		Orbitals_old = Orbitals;
@@ -200,7 +204,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		}
 
 		//=============================================================================================
-		if (HamMod == 0) {
+		if (Inp.Hamiltonian() == 0) {
 		// Hartree-Fock method. Add Exhange potential.
 
 			vector<vector<double>> Exchange_old(Orbitals.size(), vector<double>(Lattice.size(), 0));
@@ -315,247 +319,6 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		log.flush();
 	}
 }
-
-int HartreeFock::Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log)
-{
-	if (Virtual.size() == 0) return 1;
-	// Construct virtual states in V_(N-1) approximation.
-		// Estimate starting energies using Slater rules.
-	float s = 0;
-	int N_elec_tot = 0;
-	int N_elec_shell = 0;//current shell
-	int N_elec_n1 = 0, N_elec_n2 = 0;//shell with n-1 and n-2 respectively
-	int iter = 0, infty = 0;
-	double E_rel_error = 1, old_E_rel_error = 1, p = 0.5, correction_scaling = 1;
-	double old_Energy = 0;
-	RadialWF no_exc_Virt(0);
-	RadialWF old_Virt(0);
-
-	vector<double> density(lattice->size(), 0);
-	double Norm = 0;
-
-	Adams I(*lattice, 5);
-	
-	for (int i = 0; i < Virtual.size(); i++)
-	{
-		Virtual[i].set_infinity(lattice->size()-1);
-		N_elec_shell = 0;
-		N_elec_n1 = 0;
-		N_elec_n2 = 0;
-		for (int j = 0; j < Orbitals.size(); j++)
-		{
-			if (j == i) { continue; }//no double counting
-			if (Orbitals[i].L() <= 1)//[s] and [s,p] groups
-			{
-				if (Orbitals[j].N() == Virtual[i].N() && Orbitals[j].L() < 2) { N_elec_shell += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() == Virtual[i].N() - 1) { N_elec_n1 += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() < Virtual[i].N() - 1) { N_elec_n2 += Orbitals[j].occupancy(); }
-			}
-			else //[d] and [f] groups
-			{
-				N_elec_n2 += Orbitals[j].occupancy();
-			}
-		}
-		s = 0.35*N_elec_shell + 0.85*N_elec_n1 + 1.0*N_elec_n2;
-		Virtual[i].Energy = -0.5*(U.NuclCharge() - s)*(U.NuclCharge() - s) / Virtual[i].N() / Virtual[i].N();
-	}
-	int c = 0;// Find highest occupied atomic orbital.
-	for (int i = 0; i < Orbitals.size(); i++) {
-		if (Orbitals[i].occupancy() != 0) c = i;
-		N_elec_tot += Orbitals[i].occupancy();
-	}
-
-	// Special case with only 1 electron in Core Orbitals.
-	if (N_elec_tot == 1) {
-		// Orbital "c" sees only nuclear potential, as it should be in hydrogenic case.
-		U.HF_upd_dir(&Orbitals[c], Orbitals);
-		for (auto& Virt:  Virtual) Master(lattice, &Virt, &U, Master_tollerance, log);
-		return 0;
-	}
-
-	U.HF_upd_dir(&Virtual[0], Orbitals); // Direct potential is the same for all virtual states.
-
-	// V_(N-1) for only Direct.
-	U.HF_V_N1(&Virtual[0], Orbitals, c, true, false);
-
-	double Scl_dir = 1.;
-	double Scl_tollerance = HF_tollerance;
-	int count_scl = 5;
-	double numerator = 0, denominator = 0;
-	for (auto& Virt:  Virtual) {
-		Scl_dir = 1;
-		count_scl = 10;
-		E_rel_error = 1;
-		iter = 0;
-		// Main loop for inhomogenous equation.
-		while ((E_rel_error > HF_tollerance || old_E_rel_error > HF_tollerance) && iter < max_HF_iterations) {
-			if (iter == 0 || iter > max_Virt_iterations && Scl_dir > 0) {
-				// Subtaract one more electron from V_N-1.
-				if (iter != 0 && Scl_dir > 0) {
-					U.ScaleNucl(Scl_dir);
-					Scl_dir = -1./count_scl;
-					HF_tollerance = 0.001;
-				}
-				Master(lattice, &Virt, &U, Master_tollerance, log);
-				no_exc_Virt = Virt;
-				old_Virt = Virt;
-				// Initial estimate.
-				iter = 0;
-				E_rel_error = 1.;
-				old_E_rel_error = 1.;
-				correction_scaling = 1;
-			}
-
-			if (correction_scaling == 1) {
-				if (iter == 0) p = 0.5;
-
-				U.HF_upd_exc(&Virt, Orbitals);
-				// V_(N-1) for only Exchange.
-				U.HF_V_N1(&Virt, Orbitals, c, false, true);
-			
-				numerator = 0;
-				denominator = 0;
-				for (int j = 0; j < min(Virt.pract_infinity(), no_exc_Virt.pract_infinity()); j++) {
-					numerator += U.Exchange[j] * no_exc_Virt.F[j] * lattice->dR(j);
-					denominator += no_exc_Virt.F[j] * Virt.F[j] * lattice->dR(j);
-				}
-				Virt.Energy += numerator / denominator;
-			}
-
-			Virt.Energy *= correction_scaling;
-			GreensMethod P(lattice, &Virt, &U);
-			if (Virt.check_nodes() == Virt.GetNodes()) {
-				correction_scaling = 1;
-				old_E_rel_error = E_rel_error;
-				E_rel_error = fabs(Virt.Energy / old_Virt.Energy - 1);
-				p = 0.5/(1 + 5*E_rel_error);
-				//p = old_E_rel_error*E_rel_error/(old_E_rel_error*old_E_rel_error + E_rel_error*E_rel_error);
-				infty = max(Virt.pract_infinity(), old_Virt.pract_infinity());
-				for (int i = 0; i < lattice->size(); i++) {
-					Virt.F[i] = p * Virt.F[i] + (1-p) * old_Virt.F[i];
-					density[i] = Virt.F[i]*Virt.F[i];
-				}
-				Norm = I.Integrate(&density, 0, infty);
-				Virt.scale(1./Norm);
-				Virt.Energy = p*Virt.Energy + (1-p)*old_Virt.Energy;
-				old_Virt = Virt;
-			} else {// New wavefunction have incorrect n. Iterate untill it is correct.
-				correction_scaling *= 1 + 0.2*(Virt.check_nodes() - Virt.GetNodes()) / Virt.N();
-				Virt = old_Virt;
-			}
-			iter++;
-
-			if (Scl_dir < 0 && E_rel_error > HF_tollerance && count_scl < 0 && iter > max_Virt_iterations) break;
-			if (count_scl == 0 && E_rel_error < HF_tollerance) {
-				break;
-			}
-			if (Scl_dir < 0 && E_rel_error <= HF_tollerance && old_E_rel_error <= HF_tollerance && count_scl >= 0) {
-				// If scaling was used, Scl_dir <0 now so we can gradually remove scaling.
-				// If Virt converged, remove scaling and use converged Virt.
-				U.ScaleNucl(Scl_dir);
-				Master(lattice, &no_exc_Virt, &U, Master_tollerance, log);
-				E_rel_error = 1.;
-				count_scl--;
-			}
-			if (count_scl == 0) HF_tollerance = Scl_tollerance;
-		}
-		if (E_rel_error > HF_tollerance) {
-			log << "Virtual failed to converge: " << endl;
-			log << "Orbitals: ";
-			for (auto& Orb: Orbitals) log << Orb.occupancy() << " ";
-			log << "\n" << "Virtual that failed: " << endl; 
-			log << "n = " << Virt.N() << " l = " << Virt.L() << endl;
-
-			return 1;
-		}
-		/*
-		Adams I(*lattice, 10);
-
-		double Result = 0;
-		double ort = 0;
-		vector<double> density(lattice->size(), 0);
-
-		for (int i = 0; i < Orbitals.size(); i++)
-		{
-			if (Orbitals[i].L() != Virt.L()) continue;
-			int max_R = max(Orbitals[i].pract_infinity(), Virt.pract_infinity());
-			for (int k = 0; k <= max_R; k++)
-			{
-				density[k] = Virt.F[k] * Orbitals[i].F[k];
-			}
-			ort = fabs(I.Integrate(&density, 0, max_R));
-		}*/
-
-		// TODO: get orbitals calculation with exchange.
-		
-	}
-	return 0;
-}
-
-
-int HartreeFock::LDA_Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log)
-{
-	if (Virtual.size() == 0) return 1;
-	// Rather than recalculating the Virtual function of a different Lattice,
-	// the Lattice is simply an exponential Extension of an exsicting lattice.
-	// All the matrix elements between Virtual and Orbitals can be calculated
-	// on the original lattice, using first lattice-size() points of Virtual orbitals.
-	Grid Lattice = *lattice;
-	Lattice.Extend(5*lattice->size());
-	vector<RadialWF> orbitals = Orbitals;
-	for (auto &orb: orbitals) {
-		orb.resize(Lattice.size());
-	}
-	for (auto& virt: Virtual) {
-		virt.resize(Lattice.size());
-	}
-	Potential u_extnd(&Lattice, U.NuclCharge());
-	u_extnd.LDA_upd_dir(orbitals);
-
-
-	// Estimate the Virtual state energies.
-
-	float s = 0;
-	int N_elec_tot = 0;
-	int N_elec_shell = 0;//current shell
-	int N_elec_n1 = 0, N_elec_n2 = 0;//shell with n-1 and n-2 respectively
-
-	for (int i = 0; i < Virtual.size(); i++)
-	{
-		Virtual[i].set_infinity(Lattice.size()-1);
-		N_elec_shell = 0;
-		N_elec_n1 = 0;
-		N_elec_n2 = 0;
-		for (int j = 0; j < Orbitals.size(); j++)
-		{
-			if (j == i) { continue; }//no double counting
-			if (Orbitals[i].L() <= 1)//[s] and [s,p] groups
-			{
-				if (Orbitals[j].N() == Virtual[i].N() && Orbitals[j].L() < 2) { N_elec_shell += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() == Virtual[i].N() - 1) { N_elec_n1 += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() < Virtual[i].N() - 1) { N_elec_n2 += Orbitals[j].occupancy(); }
-			}
-			else //[d] and [f] groups
-			{
-				N_elec_n2 += Orbitals[j].occupancy();
-			}
-		}
-		s = 0.35*N_elec_shell + 0.85*N_elec_n1 + 1.0*N_elec_n2;
-		if (U.NuclCharge() != s) {
-			Virtual[i].Energy = -0.5*(U.NuclCharge() - s)*(U.NuclCharge() - s) / Virtual[i].N() / Virtual[i].N();
-		} else {
-			Virtual[i].Energy = -0.5/ Virtual[i].N() / Virtual[i].N();
-		}
-	}
-
-	for (auto& virt: Virtual) {
-		Master(&Lattice, &virt, &u_extnd, HF_tollerance, log);
-	}
-
-	return 0;
-}
-
-
 
 double HartreeFock::OrthogonalityTest(vector<RadialWF> &Orbitals)
 {
@@ -755,16 +518,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 		density.resize(infinity + 1);
 
 		NumIntgr.Integrate(Psi, 0, Turn);
-/*
-		if (Psi->check_nodes() != Psi->GetNodes())  {
-			E_tmp = -0.4*Psi->Energy*(Psi->GetNodes() - Psi->check_nodes()) / Psi->N();
-			for (int i = 0; i < Lattice->size(); i++) {
-				NumIntgr.C[i] += E_tmp;
-			}
-			Psi->Energy *= (1 + 0.2*(Psi->GetNodes() - Psi->check_nodes()) / Psi->N());
-			continue;
-		}
-*/
+
 		Norm = 0.0;
 
 		F_left = Psi->F[Turn];
@@ -1150,61 +904,6 @@ double HartreeFock::Conf_En(vector<RadialWF> &Orbitals, vector<RadialWF> &Virtua
 	return Result;
 }
 
-CustomDataType::polarize HartreeFock::Hybrid(vector<RadialWF> &Orbitals, vector<RadialWF> &Virtual, Potential &U)
-{
-	// Primitive calculation for hybridisation effect induced by uniform field E_at_nuc. Same idea as CI.
-	// Get all the configuration occupancies into an array.
-	CustomDataType::polarize Result;
-	vector<RadialWF*> OrbList(0);
-	for (int i = 0; i < Orbitals.size(); i++) {
-		OrbList.push_back(&Orbitals[i]);
-		Result.reference.push_back(Orbitals[i].occupancy());
-		Result.refEnergy += Orbitals[i].occupancy()*Orbitals[i].Energy;
-	}
-	for (int i = 0; i < Virtual.size(); i++) {
-		OrbList.push_back(&Virtual[i]);
-		Result.refEnergy += Virtual[i].occupancy()*Virtual[i].Energy;
-	}
-	//Result.refEnergy = Conf_En(Orbitals, Virtual, U);
-
-	vector<int> tmp(2, 0);// tmp[0] - index of GS orbital, tmp[1] - index of ES orbital
-	MatrixElems ME(lattice);
-
-	// Form many electron configurations. Account for selection rules.
-	// Exciting electron from A to B.
-	for (int i = 0; i < Orbitals.size(); i++) {
-		if (Orbitals[i].occupancy() == 0 || Orbitals[i].N() == 1) continue;
-		for (int j = 0; j < OrbList.size(); j++) {
-			if (abs(Orbitals[i].L() - OrbList[j]->L()) != 1) continue;
-			if (OrbList[j]->occupancy() == 4*OrbList[j]->L() + 2) continue;
-			if (Orbitals[j].N() == 1) continue;
-            tmp[0] = i;
-            tmp[1] = j;
-            Result.excited.push_back(tmp);
-		}
-	}
-
-	int ini_occ = 0, fin_occ = 0, Lmax = 0;
-	int ini = 0;
-	int fin = 0;
-	for (int i = 0; i < Result.excited.size(); i++) {
-		ini = Result.excited[i][0];
-		fin = Result.excited[i][1];
-        /*ini_occ = OrbList[ini]->occupancy();
-        fin_occ = OrbList[fin]->occupancy();
-		OrbList[ini]->set_occupancy(ini_occ - 1);
-		OrbList[fin]->set_occupancy(fin_occ + 1);
-        Result.extEnergy.push_back(Conf_En(Orbitals, Virtual, U));
-		Result.Dipoles.push_back(ME.Dipole(*OrbList[ini], *OrbList[fin], "length"));
-		OrbList[ini]->set_occupancy(ini_occ);
-        OrbList[fin]->set_occupancy(fin_occ);*/
-		Result.extEnergy.push_back(Result.refEnergy + (*OrbList[fin]).Energy - (*OrbList[ini]).Energy);
-		Result.Dipoles.push_back(ME.Dipole(*OrbList[ini], *OrbList[fin], "length"));
-	}
-
-	return Result;
-}
-
 void HartreeFock::MixOldNew(RadialWF * New_Orbital, RadialWF * Old_Orbital)
 {
 	// Stabilize convergence of the HF routine. Mix both orbitals.
@@ -1221,6 +920,3 @@ void HartreeFock::MixOldNew(RadialWF * New_Orbital, RadialWF * Old_Orbital)
 	Norm = I.Integrate(&density, 0, Infty);
 	New_Orbital->scale(1./sqrt(Norm));
 }
-
-
-

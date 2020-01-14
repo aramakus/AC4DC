@@ -15,8 +15,34 @@ class Input
 public:
 	//Read or set the configuration. Assign all the quantum numbers and trial energies, lattice and potential
 	Input(char* filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log);
-	Input(char* filename, vector<RadialWF> &Orbitals,  vector<RadialWF> &Virtual, Grid &Lattice, ofstream & log);
+	//Input(char* filename, vector<RadialWF> &Orbitals,  vector<RadialWF> &Virtual, Grid &Lattice, ofstream & log);
 	Input(const Input & Other);
+
+	Input& operator=(Input other)
+	{
+		if(&other == this) return *this;
+
+		swap(name, other.name);
+		swap(model, other.model);
+		swap(potential, other.potential);
+		swap(hamiltonian, other.hamiltonian);
+		swap(me_gauge, other.me_gauge);
+		swap(omega, other.omega);
+		swap(width, other.width);
+		swap(fluence, other.fluence);
+		swap(num_time_steps, other.num_time_steps);
+		swap(omp_threads, other.omp_threads);
+		swap(Z, other.Z);
+		swap(write_charges, other.write_charges);
+		swap(write_intensity, other.write_intensity);
+		swap(out_time_steps, other.out_time_steps);
+		swap(Master_tollerance, other.Master_tollerance);
+		swap(No_exchange_tollerance, other.No_exchange_tollerance);
+		swap(HF_tollerance, other.HF_tollerance);
+		swap(max_HF_iterations, other.max_HF_iterations);
+
+		return *this;
+	}
 
 	string Pot_Model() { return model; }
 	string Exited_Pot_Model() { return potential; }
@@ -38,8 +64,18 @@ public:
 	int Hamiltonian();
 	int Nuclear_Z() { return Z; }
 
+	int Num_Threads() {return omp_threads; }
+	int max_HF_iters() {return max_HF_iterations; }
+	double Master_toll() {return Master_tollerance; }
+	double No_Exch_toll() {return No_exchange_tollerance; }
+	double HF_toll() {return HF_tollerance; }
+
+	bool Write_Charges() {return write_charges; }
+	bool Write_Intensity() {return write_intensity; }
+	int Out_T_size() {return out_time_steps; }
+
 	~Input();
-protected:
+private:
 	string name = "";// A name of argv[1] suppilied as filename without extension. Is added to output files.
 	string model;
 	string potential = "V_N";
@@ -60,18 +96,7 @@ protected:
 	double No_exchange_tollerance = pow(10, -3);
 	double HF_tollerance = pow(10, -6);
 	int max_HF_iterations = 500;
-	int max_Virt_iterations = 70;
 };
-
-
-struct AuxAtomData
-{
-  // Container for static atomic data later aggregated with time-dependent occupancies.
-  vector<double> r_ion = vector<double>(0); // Ionic radius = \int dr r \rho(r, I) / \int r \rho(r, I), I - configuration.
-  vector<vector<double>> form_fact_ion = vector<vector<double>>(0); // Time-dependent ionic form-factor. 
-  vector<double> pol_ion = vector<double>(0); // Scalar polarizability.
-};
-
 
 class MolInp
 {
@@ -81,8 +106,7 @@ public:
 	~MolInp() {}
 
 	vector<Input> Atomic;
-	vector<AtomRateData> Store; 
-  vector<AuxAtomData> AuxStore;
+	vector<AtomRateData> Store;
 
 	vector<Potential> Pots;
 	vector<vector<RadialWF>> Orbits;

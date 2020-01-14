@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 		
 		for (int a = 0; a < Init.Atomic.size(); a++) {
 			printf("Nuclear charge: %d\n", Init.Atomic[a].Nuclear_Z());
-			HartreeFock HF(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a].Hamiltonian(), log);
+			HartreeFock HF(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a], log);
 
 			RateEquationSolver Dynamics(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a]);
 			vector<int> final_occ(Init.Orbits[a].size(), 0);
@@ -74,14 +74,12 @@ int main(int argc, char *argv[])
 
 			string name = Init.Store[a].name;
 			double nAtoms = Init.Store[a].nAtoms;
-      vector<bool> args = {Init.Calc_Pol_ion()}; // Save auxiliary data.
 
-			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log, args);
+			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log);
 			Init.Store[a].name = name;
 			Init.Store[a].nAtoms = nAtoms;
       Init.Store[a].R = Init.dropl_R();
 			Init.Index[a] = Dynamics.Get_Indexes();
-      Init.AuxStore[a] = Dynamics.AtomAuxStore;
 		}
 
 		RateEquationSolver Dynamics(Init.Latts[0], Init.Orbits[0], Init.Pots[0], Init.Atomic[0]);
@@ -94,14 +92,13 @@ int main(int argc, char *argv[])
 
 		Grid Lattice(0);//dummy grid. Will be modified by configuration class
 		vector<RadialWF> Orbitals;
-		vector<RadialWF> Virtual;
-		Input Init(argv[1], Orbitals, Virtual, Lattice, log);
+		Input Init(argv[1], Orbitals, Lattice, log);
 		
 		std::cout << "Nuclear charge: " << Init.Nuclear_Z() << endl;
 		std::cout << "Nuclear potential: pointlike Coulomb" << endl << endl;
 
 		Potential U(&Lattice, Init.Nuclear_Z(), Init.Pot_Model());
-		HartreeFock HF(Lattice, Orbitals, U, Init.Hamiltonian(), log);
+		HartreeFock HF(Lattice, Orbitals, U, Init, log);
 	
 		if (Init.TimePts() != 0) {
 			RateEquationSolver Dynamics(Lattice, Orbitals, U, Init);
@@ -113,35 +110,8 @@ int main(int argc, char *argv[])
 				max_occ[i] = Orbitals[i].occupancy();
 			}
 
-			if (Virtual.size() != 0) Dynamics.SolveFrozen(Virtual, max_occ, final_occ, log);
-			else Dynamics.SolveFrozen(max_occ, final_occ, log);
-
+			Dynamics.SolveFrozen(max_occ, final_occ, log);
 			Dynamics.SetupAndSolve(log);
-		} else {
-			HF.LDA_Get_Virtual(Virtual, Orbitals, U, log);
-			// Polarizability calculation. Average over configuration estimate.	
-			polarize MixMe = HF.Hybrid(Orbitals, Virtual, U);
-			MixMe.index = 0;
-			vector<RadialWF*> OrbList(0);
-			for (auto& Orb: Orbitals) OrbList.push_back(&Orb);
-			for (auto& Vrt: Virtual) OrbList.push_back(&Vrt);
-			
-			double Pol = 0;
-			int g = 0, e = 0;
-			for (int i = 0; i < MixMe.excited.size(); i++) {
-				g = MixMe.excited[i][0];
-				e = MixMe.excited[i][1];
-				double wght = 2*OrbList[g]->occupancy()*(1 - 1.*OrbList[e]->occupancy()/(4*OrbList[e]->L() + 2))/3/(2*OrbList[g]->L() + 1);	
-				Pol += wght*MixMe.Dipoles[i]*MixMe.Dipoles[i]/(MixMe.extEnergy[i] - MixMe.refEnergy);
-			}
-			cout << "Polarizability estimate: " << Pol << endl;
-
-			for (vector<RadialWF>::iterator Orb = Orbitals.begin(); Orb != Orbitals.end(); ++Orb) {
-				printf("n = %d | l = %d | Energy = %2.8f\n", Orb->N(), Orb->L(), Orb->Energy);
-			}
-
-			DecayRates test(Lattice, Orbitals, U, Init);
-			
 		}
 	}
 
@@ -150,8 +120,6 @@ int main(int argc, char *argv[])
 	log << "====================================================" << endl
 		<<"Total execution time " << float(c_stop - c_start)/1000000 << " sec" << endl;
 	log.close();
-
-	system("pause");
 
 	return 0;
 }

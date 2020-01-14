@@ -28,12 +28,11 @@ public:
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	int SolveFrozen(vector<RadialWF> & Virtual, vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	AtomRateData SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log, vector<bool> args = vector<bool>(3, false));
+	AtomRateData SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
 	// Atomic.
-	int SetupAndSolve(ofstream & log, int out_T_size = 500);
+	int SetupAndSolve(ofstream & log);
 	// Molecular.
-	int SetupAndSolve(MolInp & Input, ofstream & log, int out_T_size = 500);
+	int SetupAndSolve(MolInp & Input, ofstream & log);
 
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 
@@ -56,7 +55,6 @@ public:
 
   // Atomic data containers.
 	vector<vector<double>> density = vector<vector<double>>(0);
-  AuxAtomData AtomAuxStore;
 
   Grid & Atom_Mesh() { return lattice; }
 protected:
