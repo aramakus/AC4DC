@@ -9,7 +9,6 @@
 #include "RateEquationSolver.h"
 #include "Constant.h"
 #include <sys/stat.h>
-#include <string>
 #include <ctime>
 #include <eigen3/Eigen/Dense>
 #include "DecayRates.h"
@@ -86,7 +85,7 @@ int main(int argc, char *argv[])
 
 		Dynamics.SetupAndSolve(Init, log);
     
-		} else {
+	} else {
 
 		// Atomic input. 
 

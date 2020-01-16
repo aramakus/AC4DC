@@ -1,15 +1,24 @@
-#ATOM
-H 2 
+// Water droplet with 35 nm radius.
+
+#ATOMS
+H 2
 O 1
 
 #VOLUME
-201.8        // Volume per molecule in atomic units.
+29.9         // Volume per molecule in Angstrom^3.
+350          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 
 #PULSE
 8000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-5            // Pulse fluence in 10^4 * J/cm^2.
-4000         // Initial guess for number of time step points for rate equation.
+1            // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+2000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
+12           // Number of threads in OpenMP.
 
 #OUTPUT
-// Description of the output. Default: Charge_(atom name).txt (for each atom), Intensity.txt, Plasma.txt.
+2000         // Number of time steps in the output files.
+N            // Write charge in a separate file (Y/N)?
+N            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

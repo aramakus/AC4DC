@@ -12,7 +12,7 @@
                 "-g",
                 "main.cpp",
                 "Constant.cpp",
-                "CoupledFunction.cpp",
+                "PairFunction.cpp",
                 "DecayRates.cpp",
                 "EigenSolver.cpp",
                 "Grid.cpp",

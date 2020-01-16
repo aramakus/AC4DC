@@ -19,6 +19,7 @@ namespace Constant
 	const double au2_in_barn = 5.2917721067*5.2917721067*1000000;//atomic units to Barns.
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
+	const double au_in_Angs = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
 	
 	double Wigner3j(double, double, double, double, double, double);
 }

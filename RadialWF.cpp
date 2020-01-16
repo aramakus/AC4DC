@@ -1,6 +1,6 @@
 #include "RadialWF.h"
 
-RadialWF::RadialWF(const RadialWF& other) : CoupledFunction(other), l(other.l), Energy(other.Energy), n(other.n), infinity(other.infinity), turn(other.turn), occup_number(other.occup_number)
+RadialWF::RadialWF(const RadialWF& other) : PairFunction(other), l(other.l), Energy(other.Energy), n(other.n), infinity(other.infinity), turn(other.turn), occup_number(other.occup_number)
 {}
 
 int RadialWF::check_nodes()

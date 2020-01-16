@@ -1,13 +1,13 @@
 #pragma once
 
 #include <vector>
-#include "CoupledFunction.h"
+#include "PairFunction.h"
 
-class RadialWF : public CoupledFunction
+class RadialWF : public PairFunction
 {
 public:
 
-	RadialWF(int size = 0) : CoupledFunction(size)
+	RadialWF(int size = 0) : PairFunction(size)
 	{
 		infinity  = 0;
 		turn = 0;
@@ -36,7 +36,7 @@ public:
 
 	const RadialWF& operator=(const RadialWF& Psi)
 	{
-		CoupledFunction::operator=(Psi);
+		PairFunction::operator=(Psi);
 
 		l = Psi.l;
 		n = Psi.n;

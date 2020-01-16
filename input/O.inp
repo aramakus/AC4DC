@@ -1,4 +1,4 @@
-// Average over configuration fractional occupancy is supported, so closed orbitals can have ocuppancy between 0 and 4L+2.
+// Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
 
 #ATOM
 8            // Nuclear charge
@@ -19,7 +19,7 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 500          // Pulse fluence in 10^4 (J/cm^2).
 
 #NUMERICAL
-2000          // Number of grid points
+2000          // Number of radial grid points.
 0.001	        // Origin of the coordinate grid. Should be > 0.
 100	          // Box radius, maximum distance from the nucleus.
 1000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.

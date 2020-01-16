@@ -1010,7 +1010,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 		}
 	}
 
-	double tmp = 0, mxw_tmp = 0, Pi3x8 = 8*pow(Constant::Pi, 3)*10, Pix4 = 4*Constant::Pi;
+	double tmp = 0, mxw_tmp = 0, Pi3x8 = 8*pow(Constant::Pi, 3), Pix4 = 4*Constant::Pi;
 	int p_size = p[0].size();
 	int tot_p_size = p.size();
 	double tmp_dNdt = 0, tmp_dEdt = 0, tmp_dNpdt = 0, tmp_dEpdt = 0;

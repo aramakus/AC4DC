@@ -66,7 +66,7 @@ public:
 	~Interpolation() {};
 
 	vector<double> get_value(vector<double> &f, vector<double> &x_ini, double X);//first argument is the value, second is the derivative at X
-	vector<double> get_value(CoupledFunction &S_old, Grid &Lattice_old, double X);//first argument is the value, second is the derivative at X
+	vector<double> get_value(PairFunction &S_old, Grid &Lattice_old, double X);//first argument is the value, second is the derivative at X
 	int RecalcWF(RadialWF &S_old, Grid &Lattice_old, RadialWF &S_new, Grid &Lattice_new);
 
 protected:

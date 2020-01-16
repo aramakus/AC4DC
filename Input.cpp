@@ -1,4 +1,5 @@
 #include "Input.h"
+#include "Constant.h"
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -173,7 +174,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 		}
 	}
 
-	int num_atoms = FileContent["#ATOM"].size();
+	int num_atoms = FileContent["#ATOMS"].size();
 
 	Orbits.clear();
 	Orbits.resize(num_atoms);
@@ -194,6 +195,25 @@ MolInp::MolInp(char* filename, ofstream & log)
 		if (n == 1) stream >> radius;
 	}
 
+	for (int n = 0; n < FileContent["#OUTPUT"].size(); n++) {
+		stringstream stream(FileContent["#OUTPUT"][n]);
+		char tmp;
+
+		if (n == 0) stream >> out_T_size;
+		if (n == 1) {
+			stream >> tmp;
+			if (tmp == 'Y') write_charges = true;
+		}
+		if (n == 2) {
+			stream >> tmp;
+			if (tmp == 'Y') write_intensity = true;
+		}
+		if (n == 3) {
+			stream >> tmp;
+			if (tmp != 'Y') write_md_data = false;
+		}
+	}
+
 	for (int n = 0; n < FileContent["#PULSE"].size(); n++) {
 		stringstream stream(FileContent["#PULSE"][n]);
 
@@ -202,14 +222,24 @@ MolInp::MolInp(char* filename, ofstream & log)
 		if (n == 2) stream >> fluence;
 		if (n == 3) stream >> num_time_steps;
 	}
+
+	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
+		stringstream stream(FileContent["#NUMERICAL"][n]);
+
+		if (n == 0) stream >> num_time_steps;
+		if (n == 1) stream >> omp_threads;
+	}
+
   // Convert to number of photon flux.
   fluence /= omega/Constant::eV_in_au;
+	radius /= Constant::au_in_Angs;
+	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs; 
 	
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
 
-		stringstream stream(FileContent["#ATOM"][i]);
+		stringstream stream(FileContent["#ATOMS"][i]);
 		stream >> at_name >> at_num;
 
 		Store[i].nAtoms = at_num/unit_V;
@@ -220,6 +250,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 
 		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
 		Atomic.back().Set_Pulse(omega, fluence, width);
+		Atomic.back().Set_Num_Threads(omp_threads);
 
 		Potential U(&Latts[i], Atomic[i].Nuclear_Z(), Atomic[i].Pot_Model());
 

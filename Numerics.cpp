@@ -662,7 +662,7 @@ vector<double> Interpolation::get_value(vector<double> &f, vector<double> &x_ini
 	return Result;
 }
 
-vector<double> Interpolation::get_value(CoupledFunction &S_old, Grid &Lattice_old, double X)
+vector<double> Interpolation::get_value(PairFunction &S_old, Grid &Lattice_old, double X)
 {
 	int close_left = 0;
 	vector<double> Result(2, 0);

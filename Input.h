@@ -54,7 +54,7 @@ public:
   void Set_Width(double ext_width) {width = ext_width;}
   void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
 	
-  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, int ext_T_size = 0) {
+  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
 		omega = ext_omega;
 		fluence = ext_fluence;
 		width = ext_width;
@@ -65,6 +65,7 @@ public:
 	int Nuclear_Z() { return Z; }
 
 	int Num_Threads() {return omp_threads; }
+	void Set_Num_Threads(int new_num_threads) {omp_threads = new_num_threads; }
 	int max_HF_iters() {return max_HF_iterations; }
 	double Master_toll() {return Master_tollerance; }
 	double No_Exch_toll() {return No_exchange_tollerance; }
@@ -120,11 +121,11 @@ public:
 	double dropl_R() {return radius;}
 
   void Set_Fluence(double new_fluence) {fluence = new_fluence;}
+	bool Write_Charges() {return write_charges; }
+	bool Write_Intensity() {return write_intensity; }
+	bool Write_MD_data() {return write_md_data; }
 
-  // Auxilary data calculation options.
-  bool Calc_R_ion() {return calculate_r_ion;}
-  bool Calc_Pol_ion() {return calculate_pol_ion;}
-  bool Calc_FF_ion() {return calculate_form_fact_ion;}
+	int Out_T_size() {return out_T_size; }
 
 	string name = "";
 private:
@@ -132,12 +133,14 @@ private:
 	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
 	int num_time_steps = 1000; // Guess number of time steps for time dynamics.
+	int out_T_size = 0; // Unlike atomic input, causes to output all points.
 	double radius = 1000.;
+	int omp_threads = 1;
+
+	bool write_charges = false;
+	bool write_intensity = false;
+	bool write_md_data = true;
 
 	double unit_V = 1.;
-
-  bool calculate_r_ion = false;
-  bool calculate_pol_ion = false;
-  bool calculate_form_fact_ion = false;
 };
 

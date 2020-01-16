@@ -674,7 +674,8 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
 				else charge_out << chrg_tmp << " ";			
 			}
-			charge_out << T[m] << endl;
+			charge_out << T[m];
+			if (m != T.size() - 1) charge_out << endl;
 		}
 		
 		charge_out.close();
@@ -686,7 +687,8 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 		
 		double I_max = *max_element(begin(Intensity), end(Intensity));
 		for (int m = 0; m < T.size(); m++) {
-			intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
+			intensity_out << Intensity[m] / I_max << " " << T[m];
+			if (m != T.size() - 1) intensity_out << endl;
 		}
 
 		intensity_out.close();
@@ -728,16 +730,14 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 			dT[i] *= scaling_T;
 		}
 		Intensity = generate_I(T, fluence, Sigma);
-    
-    // Extend mesh to 100 fs (extra 20fs added as pulse starts at -20fs).
-        
+           
 		//SmoothOrigin(T, Intensity);
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
 
     T_size = T.size();
 
-		converged = Calc.Solve(Mxwll, Input.Store, T_size);
+		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
 
 		if (converged == 0)
 		{
@@ -760,25 +760,10 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 	double t_tmp = 0;
 	double I_max = *max_element(begin(Intensity), end(Intensity));
-  int MidT = 0;
-  while (Intensity[MidT] != I_max && MidT < T.size()) MidT++;
-  double MidTval = T[MidT];
+  
 	for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-MidTval)*Constant::fs_in_au;
+		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
 		dT[m] *= Constant::fs_in_au;
-	}
-
-	if (input.Write_Intensity()) {
-		// Output intensity profile.
-		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
-		ofstream intensity_out(IntensityName);
-
-		for (int m = 0; m < T.size(); m++) {
-			T[m] = (T[m]-MidTval)*Constant::fs_in_au;
-			dT[m] *= Constant::fs_in_au;
-			intensity_out << Intensity[m] / I_max << " " << T[m] << endl;
-		}
-		intensity_out.close();
 	}
 
 	int shift = 0;
@@ -822,21 +807,56 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
     }
 
 		shift += Input.Store[a].num_conf;
+
+		if (Input.Write_Charges()) {
+			string ChargeName = "./output/Charge_" + Input.Store[a].name + ".txt";
+			ofstream charge_out(ChargeName);
+			double chrg_tmp = 0;
+			for (int m = 0; m < T.size(); m++) {
+				for (int i = 0; i < charge.size(); i++) {
+					chrg_tmp = charge[i][m];
+					if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
+					else charge_out << chrg_tmp << " ";			
+				}
+				charge_out << T[m];
+				if (m != T.size() - 1) charge_out << endl;
+			}
+			
+			charge_out.close();
+		}
+
 	}
  
-	string MD_Data = "./output/MD_Data.txt";
-	ofstream OutFile(MD_Data);
-	OutFile << T.size() << endl;
-	OutFile << "Time ";
-	for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
-	OutFile << "N(elec) E(elec)";
-	for (int m = 0; m < T.size(); m++) {
-		OutFile << endl << T[m] << " ";
-		for (int a = 0; a < AllAtomCharge.size(); a++) {
-			OutFile << AllAtomCharge[a][m] << " ";
+	if (Input.Write_MD_data()) {
+		string MD_Data = "./output/MD_Data.txt";
+		ofstream OutFile(MD_Data);
+		OutFile << T.size() << endl;
+		OutFile << "Time ";
+		for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
+		OutFile << "N(elec) E(elec)";
+		for (int m = 0; m < T.size(); m++) {
+			OutFile << endl << T[m] << " ";
+			for (int a = 0; a < AllAtomCharge.size(); a++) {
+				OutFile << AllAtomCharge[a][m] << " ";
+			}
+			if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
+			else OutFile << 0 << " " << 0;
 		}
-		if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
-		else OutFile << 0 << " " << 0;
+
+		OutFile.close();
+	}
+
+	if (Input.Write_Intensity()) {
+		string IntensityName = "./output/Intensity_" + Input.name + ".txt";	
+		ofstream intensity_out(IntensityName);
+		
+		double I_max = *max_element(begin(Intensity), end(Intensity));
+		for (int m = 0; m < T.size(); m++) {
+			intensity_out << Intensity[m] / I_max << " " << T[m];
+			if (m != T.size() - 1) intensity_out << endl;
+		}
+
+		intensity_out.close();
 	}
   
 	return 0;
