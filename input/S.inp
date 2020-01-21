@@ -1,7 +1,7 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
 
 #ATOM
-15            // Nuclear charge
+16            // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 HF           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
@@ -10,7 +10,7 @@ HF           // Hamiltonian form. Can be HF, LDA.
 2s 2
 2p 6
 3s 2
-3p 3
+3p 4
 V_N          // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-orthogonal excited state orbitals, "V_N-1" for classical potential.
 length       // Gauge type for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 

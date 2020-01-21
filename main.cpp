@@ -14,6 +14,13 @@ This file is part of AC4DC.
     You should have received a copy of the GNU General Public License
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
+
+/*
+ *  author: Alexander Kozlov <alexx.kozloff@gmail.com>
+ *
+ *  First posted: 20-01-2020
+ */
+
 #include "stdafx.h"
 #include "Input.h"
 #include "Grid.h"
@@ -71,10 +78,11 @@ int main(int argc, char *argv[])
 
 	if (tail == ".txt") {
 
-		// Molecular input. Default case.
+		// Molecular input.
 
 		MolInp Init(argv[1], log);
 		
+		// Loop through atomic species.
 		for (int a = 0; a < Init.Atomic.size(); a++) {
 			printf("Nuclear charge: %d\n", Init.Atomic[a].Nuclear_Z());
 			HartreeFock HF(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a], log);
@@ -97,6 +105,7 @@ int main(int argc, char *argv[])
 			Init.Index[a] = Dynamics.Get_Indexes();
 		}
 
+		// Solve a coupled system of equations for atoms and electron plasma.
 		RateEquationSolver Dynamics(Init.Latts[0], Init.Orbits[0], Init.Pots[0], Init.Atomic[0]);
 
 		Dynamics.SetupAndSolve(Init, log);
@@ -114,7 +123,8 @@ int main(int argc, char *argv[])
 
 		Potential U(&Lattice, Init.Nuclear_Z(), Init.Pot_Model());
 		HartreeFock HF(Lattice, Orbitals, U, Init, log);
-	
+
+		// Solve the system of equations for atomic charge state dynamics.
 		if (Init.TimePts() != 0) {
 			RateEquationSolver Dynamics(Lattice, Orbitals, U, Init);
 			vector<int> final_occ(Orbitals.size(), 0);

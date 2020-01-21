@@ -9,7 +9,7 @@
             "command": "g++",
             "args": [
                 "-std=c++11",
-                "-g",
+                "-O3",
                 "main.cpp",
                 "Constant.cpp",
                 "DecayRates.cpp",
