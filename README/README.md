@@ -15,7 +15,9 @@ The code simulates the changes in electronic structure of atoms as they are illu
 ### Dependencies:
 
 Eigen 3        (vector algebra library, http://eigen.tuxfamily.org/index.php?title=Main_Page)
+
 Wigner Symbols (3-j and 6-j symbols, https://github.com/joeydumont/wignerSymbols)
+
 OpenMP         (multi-threading, https://www.openmp.org/)
 
-## Bibliography:
+### Bibliography:
