@@ -18,6 +18,7 @@ This file is part of AC4DC.
 #include "Numerics.h"
 #include <vector>
 #include "EigenSolver.h"
+#include <algorithm>
 
 static const double adams_10[10] = { 2082753.0 / 7257600.0, 9449717.0 / 7257600.0, -11271304.0 / 7257600.0, 16002320.0 / 7257600.0, -17283646.0 / 7257600.0,
 13510082.0 / 7257600.0, -7394032.0 / 7257600.0, 2687864.0 / 7257600.0, -583435.0 / 7257600.0, 57281.0 / 7257600.0 };
@@ -755,6 +756,104 @@ int Interpolation::RecalcWF(RadialWF &S_old, Grid &Lattice_old, RadialWF &S_new,
 	}
 	else return 1;
 }
+
+
+/*
+void Interpolation::gaussian_sum(vector<double> & Vals, Grid & Lattice, int start_pt, int end_pt, int max_iter = 100, double conv_toll = 0.001)
+{
+  // Function 'Vals' (radial atomic density), defined on a mesh 'R' (with intervals 'dR) is interpolated with a sum of 'Order'
+  // Gaussians as 
+     
+  // Vals(R) ~ S(R)
+  // S(R) = sum_{n=1}^{Order} R^2 * b_i*exp(-a_i*R^2)
+  // a_i >= 0,  b_i > 0 
+  // The norm : int_{R(start)}^{R(end)} Vals(R) dR = int_{R(start)}^{R(end)} S(R)*dR
+  // is enforsed at every iteration.
+
+  // This is done by maximizing a function 
+  // Lagrange({a_i, b_i}) = int_{R(start)}^{R(end)} Vals(R)*S(R)*dR -
+  //                      - L*(\sum_i b_i * Norm_i - N(Vals))
+  // iteratively.
+  
+
+  vector<double> a(order, 0);
+  vector<double> dLagr_da(order, 0);
+  vector<double> b(order, 0);
+  vector<double> dLagr_db(order, 0);
+  
+  vector<double> norm(order, 0), dnorm_da(order, 0);
+
+  double U = 0, L = 1, dLagr_dL = 0;
+  Adams I(Lattice, 5);
+  vector<double> exp_R2(end_pt-start_pt + 1, 0);
+  vector<double> exp_R4(end_pt-start_pt + 1, 0);
+  // Initialize parameters:
+  double vals_norm = I.Integrate(&Vals, start_pt, end_pt);
+  for (int j = start_pt; j <= end_pt; j++) exp_R2[j] = Vals[j] * Lattice.R(j);
+  double tmp = I.Integrate(&exp_R2, start_pt, end_pt)/vals_norm;
+  
+  // TODO: adjust Beta in geometric set from 4 to something 'order' dependent.
+  for (int i = 0; i < order; i++) {
+    if (i == 0) a[0] = 0.01/(tmp*tmp);
+    else a[i] = 4*a[i-1];
+
+    for (int j = start_pt; j < end_pt; j++) {
+      tmp = Lattice.R(j)*Lattice.R(j);
+      exp_R2[j] = tmp*exp(-a[i]*tmp);
+    }
+    tmp = I.Integrate(&exp_R2, start_pt, end_pt);
+    b[i] = 1./tmp/order; // To normalize 'S(R)'.
+  }
+  
+  double epsilon = 1; // relative error.
+  double h = 1; // training step.
+  for (int m = 0; m < max_iter; m++) {
+    // Calculate auxilary functions.
+    for (int i = 0; i < order; i++) {
+      for (int j = start_pt; j < end_pt; j++) {
+        tmp = Lattice.R(j)*Lattice.R(j);
+        exp_R2[j] = tmp*exp(-a[i]*tmp);
+        exp_R4[j] = tmp*exp_R2[j];
+      }
+      norm[i] = I.Integrate(&exp_R2, start_pt, end_pt);
+      dnorm_da[i] = I.Integrate(&exp_R4, start_pt, end_pt);
+      
+      for (int j = start_pt; j < end_pt; j++) {
+        exp_R2[j] *= Vals[j];
+        exp_R4[j] *= Vals[j];
+      }
+      dLagr_da[i] = -b[i]*(I.Integrate(&exp_R4, start_pt, end_pt) + L*dnorm_da[i]);         
+      dLagr_db[i] = I.Integrate(&exp_R2, start_pt, end_pt) - L*norm[i];
+
+      dLagr_dL -= b[i]*norm[i];    
+    }
+
+    // Update parameters.
+    for (int i = 0; i < order; i++) {
+      // Gradient clipping.
+      if (fabs(dLagr_db[i]) > 1) dLagr_db[i] /= fabs(dLagr_db[i]);
+      if (fabs(dLagr_da[i]) > 1) dLagr_da[i] /= fabs(dLagr_da[i]);
+
+      tmp = b[i] + dLagr_db[i] * h;
+      if (tmp < 0) b[i] /= 3;
+      else b[i] = tmp;
+
+      tmp = a[i] + dLagr_da[i] * h;
+      if (tmp < 0) a[i] /= 3;
+      else a[i] = tmp;
+    }
+
+    if (fabs(dLagr_dL) > 1) dLagr_dL /= fabs(dLagr_dL);
+    L += dLagr_dL * h;
+
+    // TODO: Assemble new utility function, print out it's value, test and denug the code.
+    if (epsilon < conv_toll) break;
+  }
+
+}
+
+
+*/
 
 
 GaussQuad::GaussQuad(int Order)

@@ -41,6 +41,7 @@ using namespace CustomDataType;
 RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : 
 lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
 {
+  omp_set_num_threads(input.Num_Threads());
 //Orbitals are HF wavefunctions. This configuration is an initial state.
 //Assuming there are no unoccupied states in initial configuration!!!
 }
@@ -89,7 +90,6 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 
-		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
 		{
@@ -235,7 +235,6 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 
-		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
 		{
@@ -398,9 +397,6 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		tmpEIIparams.occ.resize(orbitals.size() - MaxBindInd, 0);
 		vector<EIIdata> LocalEIIparams(0);
 
-		density.clear();
-
-		omp_set_num_threads(input.Num_Threads());
 	  #pragma omp parallel default(none) \
 		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
@@ -420,6 +416,9 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 
+        vector<double> density = U.make_density(Orbitals);
+        //Interpolation I(6);
+        //I.gaussian_sum(density, lattice, 0, lattice.size()-1);
 				// EII parameters to store for Later BEB model calculation.
 				tmpEIIparams.init = i;
 				int size = 0;
@@ -792,9 +791,9 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 	for (int a = 0; a < Input.Atomic.size(); a++) {
 		
 		// Occupancies associated with the atom "a".
-		vector<vector<double*>> map_p(Input.Store[a].num_conf);
+		vector<int> map_p(Input.Store[a].num_conf);
 		for (int i = 0; i < Input.Store[a].num_conf; i++) {
-			map_p[a].push_back(P[i + shift].data());
+			map_p[i] = i + shift;
 		}
 
 		// Work out charges of all configurations.
@@ -810,10 +809,11 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		charge.clear();
 		charge.resize(*max_element(begin(P_to_charge), end(P_to_charge)) + 1);
 		for (auto& ch: charge) ch = vector<double>(T.size(), 0);
-		for (int i = 0; i < map_p[a].size(); i++)
+		for (int i = 0; i < map_p.size(); i++)
 		{
+      int conf_ind = map_p[i];
 			tmp = P_to_charge[i];
-			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += *(map_p[a][i] + m);
+			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += P[conf_ind][m];
 		}		
 
     for (int m = 0; m < T.size(); m++) {

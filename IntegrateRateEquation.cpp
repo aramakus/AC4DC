@@ -408,6 +408,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	double v_t = sqrt(2*e_t);
 	double Gesc = v_t/Store.R;
 	tmp = 0;
+	// Initialize secondary electron temperature.
 	for (auto& eii: Store.EIIparams) {
 		if (eii.init != 0) continue;
 		for (int i = 0; i < eii.fin.size(); i++) {

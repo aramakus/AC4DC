@@ -58,6 +58,9 @@ public:
 
 	int size() { return NumPts; }
 
+  const double * ptr_R() {return r.data();}
+  const double * ptr_dR() {return dr.data();}
+
 private:
 	std::vector<double> r, dr;
 	double ds;
