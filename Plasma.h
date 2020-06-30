@@ -25,9 +25,9 @@ class Plasma
 {
 //======================================================================
 //	Electron impact ionization (EII) and three body recombination (TBR)
-//	cross-sections from binary encounter models (BEB and BED). 
+//	cross-sections from binary encounter models (BEB and BED).
 //  Also stores plasma paramameters, such as photo- and secondary electron number densities and energy densities.
-//  BEB is much cheaper since it doesn't require 
+//  BEB is much cheaper since it doesn't require
 //  differential ocillatory strength at every point.
 //  For binary encounter model see Yong-Ki Kim, M. Eugene Rudd, PRA 50(5), 3954 (1994).
 //  For sum rules used in derivation see A. Dalgarno, N. Lynn, Proc. Phys. Soc. A 70, 802 (1957).
@@ -44,7 +44,7 @@ public:
 	vector<double> E;// Total energy of secondary electrons.
 
 	vector<double> dNpdt;
-	vector<double> dEpdt;	
+	vector<double> dEpdt;
 	vector<double> dNdt;
 	vector<double> dEdt;
 
@@ -60,7 +60,7 @@ public:
 	// Int_0^(p*p/2 - B) dW W d(sigmaBED)/dW - first moment of a secondary electron energy.
 	double sigmaBEBw1(double T, double B, double u, int occ);
 
-	double SetMaxwellPF(double Temperature); // Set temperature and norm for Maxwellian PF.
+	void SetMaxwellPF(double Temperature); // Set temperature and norm for Maxwellian PF.
 	double MaxwellPF(double W);
 	double MaxwellEII(double B, double u, int occ);
 	double TESTMaxwellEII(double B, double u, int occ);
@@ -71,11 +71,10 @@ public:
 private:
 	double MaxwellT = 1;
 	double MaxwellNorm = 1;
-	
+
 	//void Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals);
 	//void Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals );
 	// Calculate "N_i" (BED) and "Q_i" (BEB), adn orbitals electron kinetic energies parameters EII model.
 	//vector<double> N;
 	//vector<double> Q;
 };
-
