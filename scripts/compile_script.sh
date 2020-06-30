@@ -1,0 +1,1 @@
+g++ -O3 -std=c++11 main.cpp Constant.cpp DecayRates.cpp EigenSolver.cpp Grid.cpp HartreeFock.cpp Input.cpp IntegrateRateEquation.cpp Numerics.cpp Potential.cpp RadialWF.cpp RateEquationSolver.cpp Plasma.cpp Wigner/wignerSymbols.cpp -o HF -fopenmp
