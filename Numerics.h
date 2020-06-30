@@ -81,12 +81,12 @@ public:
 	Interpolation(int Order = 6);
 	~Interpolation() {};
 
-	vector<double> get_value(vector<double> &f, vector<double> &x_ini, double X);//first argument is the value, second is the derivative at X
+	vector<double> get_value(const vector<double> &f, const vector<double> &x_ini, double X);//first argument is the value, second is the derivative at X
 	vector<double> get_value(PairFunction &S_old, Grid &Lattice_old, double X);//first argument is the value, second is the derivative at X
 	int RecalcWF(RadialWF &S_old, Grid &Lattice_old, RadialWF &S_new, Grid &Lattice_new);
   
   // Interpolate the function Vals, defined on a grid R (with intervals dR) with a sum of "Order" Gaussians. Weights and exponenets are optimized.
-  //void gaussian_sum(vector<double> & Vals, Grid & Lattice, int start_pt, int end_pt, int max_iter = 100, double conv_toll = 0.001);
+  void gaussian_sum(vector<double> & Vals, Grid & Lattice, int max_iter = 1000, double conv_toll = 0.001);
 
 protected:
 	int order;

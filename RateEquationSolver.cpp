@@ -220,11 +220,12 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
 	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
-
+	bool existFF = !exists_test(RateLocation + "Form_Factor.txt");
+	
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
 	if (existAug) printf("Auger rates found. Reading...\n");
-
+	
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
 	{
@@ -234,9 +235,11 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
+		vector<ffactor> LocalFF(0);
 
 		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
+		shared(cout, runlog, existAug, existFlr, existPht, existFF) \
+		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalFF)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -254,6 +257,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				HartreeFock HF(Lattice, Orbitals, U, input, runlog);
 
 				DecayRates Transit(Lattice, Orbitals, u, input);
+
+				// ======= Experimental =========
+				if (existFF) LocalFF.push_back({i, Transit.FT_density()});
 
 				Tmp.from = i;
 
@@ -302,13 +308,14 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-				//FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
+				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(FF.begin(), FF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
 		GenerateRateKeys(Store.Auger);
 		
 		if (existPht) {
@@ -329,6 +336,15 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
+		if (existFF) {
+		string dummy = RateLocation + "Form_Factor.txt";
+		FILE * fl = fopen(dummy.c_str(), "w");
+		for (auto& ff : FF) {
+			for (int i = 0; i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
+			fprintf(fl, "\n");
+		}
+		fclose(fl);
+	}
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
@@ -369,6 +385,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
 	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existFF = !exists_test(RateLocation + "Form_Factor.txt");
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -382,6 +399,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
+		vector<ffactor> LocalFF(0);
 		// Electron impact ionization orbital enerrgy storage.
 		EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
@@ -398,8 +416,8 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<EIIdata> LocalEIIparams(0);
 
 	  #pragma omp parallel default(none) \
-		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
-		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
+		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht, existFF) \
+		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalFF, LocalEIIparams, tmpEIIparams)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -416,9 +434,6 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 
-        vector<double> density = U.make_density(Orbitals);
-        //Interpolation I(6);
-        //I.gaussian_sum(density, lattice, 0, lattice.size()-1);
 				// EII parameters to store for Later BEB model calculation.
 				tmpEIIparams.init = i;
 				int size = 0;
@@ -443,6 +458,9 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				LocalEIIparams.push_back(tmpEIIparams);  
 
 				DecayRates Transit(lattice, Orbitals, u, input);
+
+				// ======= Experimental =========
+				if (existFF) LocalFF.push_back({i, Transit.FT_density()});
 
 				Tmp.from = i;
 
@@ -492,12 +510,14 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
+				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(FF.begin(), FF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 				
@@ -517,6 +537,15 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 			string dummy = RateLocation + "Auger.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
+			fclose(fl);
+		}
+		if (existFF) {
+			string dummy = RateLocation + "Form_Factor.txt";
+			FILE * fl = fopen(dummy.c_str(), "w");
+			for (auto& ff : FF) {
+				for (int i = 0; i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
+				fprintf(fl, "\n");
+			}
 			fclose(fl);
 		}
 	}

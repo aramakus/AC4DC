@@ -37,6 +37,7 @@ public:
 	vector<fluor> Fluor(); // Fluorescence rates for all channels.
 	vector<auger> Auger(vector<int> Max_occ, ofstream & log); // Auger decay rates for all channels.
 
+	vector<double> FT_density(double Q_min = 0, double Q_max = 2, int Q_size = 20);
 	~DecayRates();
 
 private:

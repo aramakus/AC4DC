@@ -28,9 +28,15 @@ class Grid
 	S = R + beta*ln(R)
 	According to Vladimir Dzuba the best value for beth=4.
 	*/
+private:
+	vector<double> r, dr;
+	double ds;
+	double beta;
+	int NumPts;
 public:
 	Grid(int num_grid_pts, double r_min, double r_max, double Beta = 4);
-	Grid(double r_max, double dR_max, int Z);//same linear logarithm, but with maximum dR_max. Defines number of points itself
+	Grid(double r_min, double r_max, double dR_max);//same linear logarithm, but with maximum dR_max. 
+	// Defines number of points on its own. Great for integrals with oscillating functions.
 	Grid(int X) { NumPts = X; }//empty lattice to be defined elsewhere
 	Grid(vector<double> & X, vector<double> & dX);
 
@@ -60,10 +66,5 @@ public:
 
   const double * ptr_R() {return r.data();}
   const double * ptr_dR() {return dr.data();}
-
-private:
-	std::vector<double> r, dr;
-	double ds;
-	double beta;
-	int NumPts;
+	const decltype(r) & all_R() const {return r;}
 };

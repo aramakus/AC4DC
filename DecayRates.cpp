@@ -63,7 +63,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 	if (k_max <= 0) return Result;
 	if (Infinity < 5*6.28/k_min) Infinity = 5*6.28/k_min;
 //	Usually a finer grid is required.
-	Grid Lattice(Infinity, 0.03/k_max, u.NuclCharge());
+	Grid Lattice(lattice.R(0), Infinity, 0.03/k_max);
 //	Grid Lattice(50000, 0.001, 50, "linear");
 
 //	Interpolate orbitals on the new grid
@@ -262,7 +262,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 		N_elec += orbitals[i].occupancy();
 	}
 	//	Usually a finer grid is required.
-	Grid Lattice(50., 0.03 / k, u.NuclCharge());
+	Grid Lattice(lattice.R(0), 50., 0.03 / k);
 
 	//	Interpolate orbitals on the new grid
 	Interpolation W(6);
@@ -410,6 +410,65 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 	}
 
 	return Result;
+}
+
+
+vector<double> DecayRates::FT_density(double Q_min, double Q_max, int Q_size)
+{
+	// Fourier Transform of radially symmetric density. Essentially, an integral:
+	// int_0^{infty} dr density(r) sinc(2*pi*Q*r)
+	double Q = Q_min;
+	double dQ = (Q_max - Q_min)/(Q_size - 1);
+
+	Grid Inp_lattice = lattice;
+
+	vector<double> Output(Q_size, 0);
+	vector<double> Inp_density = u.make_density(orbitals);
+
+	// find practical infty of density
+	int infty = lattice.size()-1;
+	double cutoff = 1e-6, tmp;
+	while (Inp_density[infty] < cutoff) infty--;
+
+	// Check if a finer mesh is required. Criteria - 
+	// 2*M_PI*Q*dR(infty) = 1/20 - at least 20 points per period.
+	Adams IT(Inp_lattice, 6);
+
+	vector<double> integr(infty+1, 0);
+
+	for (int m = 0; m < Q_size; m++) {
+		if (2*M_PI*Inp_lattice.dR(infty)*Q > 0.05) {
+			// Create a new lattice and do interpolation.
+			double dR_max = 0.05/(2*M_PI*Q_max);
+			Inp_lattice = Grid(lattice.R(0), lattice.R(infty), dR_max);
+
+			Interpolation IN(6);
+			vector<double> density = Inp_density;
+			Inp_density.clear();
+			Inp_density.resize(Inp_lattice.size(), 0);
+			for (int i = 0; i < Inp_lattice.size(); i++) {
+				Inp_density[i] = IN.get_value(density, lattice.all_R(), Inp_lattice.R(i))[0];
+			}
+			integr.clear();
+			integr.resize(Inp_lattice.size(), 0);
+		}
+
+		if (Q == 0) {
+			for (int i = 0; i < integr.size(); i++) {
+				integr[i] = Inp_density[i];
+			}
+		} else {
+			for (int i = 0; i < integr.size(); i++) {
+				tmp = 2*M_PI*Inp_lattice.R(i)*Q;
+				integr[i] = Inp_density[i]*sin(tmp)/tmp;
+			}
+		}
+
+		Output[m] = IT.Integrate(&integr, 0, integr.size()-1);
+		Q += dQ;
+	}
+
+	return Output;
 }
 
 

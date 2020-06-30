@@ -626,7 +626,7 @@ Interpolation::Interpolation(int Order)
 	order = Order;//fixed order, not too high, to avoid oscillations
 }
 
-vector<double> Interpolation::get_value(vector<double> &f, vector<double> &x_ini, double X)
+vector<double> Interpolation::get_value(const vector<double> &f, const vector<double> &x_ini, double X)
 {
 	int close_left = 0;
 	vector<double> Result(2, 0);
@@ -758,8 +758,8 @@ int Interpolation::RecalcWF(RadialWF &S_old, Grid &Lattice_old, RadialWF &S_new,
 }
 
 
-/*
-void Interpolation::gaussian_sum(vector<double> & Vals, Grid & Lattice, int start_pt, int end_pt, int max_iter = 100, double conv_toll = 0.001)
+
+void Interpolation::gaussian_sum(vector<double> & Vals, Grid & Lattice, int max_iter, double conv_toll)
 {
   // Function 'Vals' (radial atomic density), defined on a mesh 'R' (with intervals 'dR) is interpolated with a sum of 'Order'
   // Gaussians as 
@@ -767,94 +767,136 @@ void Interpolation::gaussian_sum(vector<double> & Vals, Grid & Lattice, int star
   // Vals(R) ~ S(R)
   // S(R) = sum_{n=1}^{Order} R^2 * b_i*exp(-a_i*R^2)
   // a_i >= 0,  b_i > 0 
-  // The norm : int_{R(start)}^{R(end)} Vals(R) dR = int_{R(start)}^{R(end)} S(R)*dR
   // is enforsed at every iteration.
 
-  // This is done by maximizing a function 
-  // Lagrange({a_i, b_i}) = int_{R(start)}^{R(end)} Vals(R)*S(R)*dR -
-  //                      - L*(\sum_i b_i * Norm_i - N(Vals))
-  // iteratively.
+  // The loss
+  // Loss({a_i, b_i}) = int_{R(start)}^{R(end)} (Vals(R) - S(R))^2*dR 
+  // is minimized iteratively.
   
+  int start_pt = 0;
+  int end_pt = Lattice.size()-1;
+  while (Vals[end_pt] < 0.000001) end_pt--;
 
   vector<double> a(order, 0);
-  vector<double> dLagr_da(order, 0);
   vector<double> b(order, 0);
-  vector<double> dLagr_db(order, 0);
+  // Gradients. First 'order' values are a[i], last are b[i].
+  vector<double> grad_a(order, 0); 
+  vector<double> grad_b(order, 0); 
+  // Adam paramteres.
+  vector<double> M(2*order, 0);
+  vector<double> V(2*order, 0);
+  double Beta1 = 0.9, Beta2 = 0.999, eta=1;
+  double Beta1_pow_m = 1, Beta2_pow_m = 1, M_hat, V_hat, e = 1;
   
-  vector<double> norm(order, 0), dnorm_da(order, 0);
-
-  double U = 0, L = 1, dLagr_dL = 0;
+  double Loss = 0;
   Adams I(Lattice, 5);
-  vector<double> exp_R2(end_pt-start_pt + 1, 0);
-  vector<double> exp_R4(end_pt-start_pt + 1, 0);
+  vector<double> aux_func(end_pt-start_pt + 1, 0);
+  vector<double> Vals_pred(end_pt-start_pt + 1, 0);
   // Initialize parameters:
   double vals_norm = I.Integrate(&Vals, start_pt, end_pt);
-  for (int j = start_pt; j <= end_pt; j++) exp_R2[j] = Vals[j] * Lattice.R(j);
-  double tmp = I.Integrate(&exp_R2, start_pt, end_pt)/vals_norm;
-  
+  double tmp, exp_ar2, pred_norm, Lambda = 1, lr = 1e-3;
+
   // TODO: adjust Beta in geometric set from 4 to something 'order' dependent.
   for (int i = 0; i < order; i++) {
-    if (i == 0) a[0] = 0.01/(tmp*tmp);
-    else a[i] = 4*a[i-1];
+    if (i == 0) a[0] = 0.1;
+    else a[i] = 3*a[i-1];
 
     for (int j = start_pt; j < end_pt; j++) {
       tmp = Lattice.R(j)*Lattice.R(j);
-      exp_R2[j] = tmp*exp(-a[i]*tmp);
+      aux_func[j] = tmp*exp(-a[i]*tmp);
     }
-    tmp = I.Integrate(&exp_R2, start_pt, end_pt);
-    b[i] = 1./tmp/order; // To normalize 'S(R)'.
+    tmp = I.Integrate(&aux_func, start_pt, end_pt);
+    b[i] = vals_norm/tmp/order; // To normalize 'S(R)'.
   }
   
   double epsilon = 1; // relative error.
-  double h = 1; // training step.
+  
   for (int m = 0; m < max_iter; m++) {
-    // Calculate auxilary functions.
-    for (int i = 0; i < order; i++) {
-      for (int j = start_pt; j < end_pt; j++) {
-        tmp = Lattice.R(j)*Lattice.R(j);
-        exp_R2[j] = tmp*exp(-a[i]*tmp);
-        exp_R4[j] = tmp*exp_R2[j];
-      }
-      norm[i] = I.Integrate(&exp_R2, start_pt, end_pt);
-      dnorm_da[i] = I.Integrate(&exp_R4, start_pt, end_pt);
-      
-      for (int j = start_pt; j < end_pt; j++) {
-        exp_R2[j] *= Vals[j];
-        exp_R4[j] *= Vals[j];
-      }
-      dLagr_da[i] = -b[i]*(I.Integrate(&exp_R4, start_pt, end_pt) + L*dnorm_da[i]);         
-      dLagr_db[i] = I.Integrate(&exp_R2, start_pt, end_pt) - L*norm[i];
+    // Calculate current loss.
+    Loss = 0;
+    for (int j = start_pt; j < end_pt; ++j) {
+      Vals_pred[j] = 0;
+      tmp = Lattice.R(j);
+      tmp *= tmp;
+      for (int i = 0; i < order; i++) Vals_pred[j] += b[i]*tmp*exp(-a[i]*tmp);
+      tmp = Vals_pred[j] - Vals[j];
+      aux_func[j] = tmp*tmp;
+    }
+    Loss = I.Integrate(&aux_func, start_pt, end_pt);
+    //Loss = I.Integrate(&aux_func, start_pt, end_pt);
+    pred_norm = I.Integrate(&Vals_pred, start_pt, end_pt);
 
-      dLagr_dL -= b[i]*norm[i];    
+    //Loss += Lambda*fabs(pred_norm - vals_norm);
+
+    // Calculate gradients.
+    for (int i = 0; i < order; i++) {
+      // Grad b.
+      grad_b[i] = 0;
+
+      for (int j = start_pt; j < end_pt; j++) {
+        tmp = Lattice.R(j);
+        tmp *= tmp;
+        exp_ar2 = tmp*exp(-a[i]*tmp);
+        aux_func[j] = (Vals_pred[j] - Vals[j])*exp_ar2;
+      }
+      if (pred_norm > vals_norm) tmp = 1;
+      else tmp = -1;
+
+      grad_b[i] = 2*I.Integrate(&aux_func, start_pt, end_pt) + tmp*Lambda*0.25*sqrt(M_PI/a[i])/a[i];
+
+      // Grad_a.
+      grad_a[i] = 0;
+      for (int j = start_pt; j < end_pt; j++) {
+        tmp = Lattice.R(j);
+        tmp *= tmp;
+        exp_ar2 = tmp*tmp*exp(-a[i]*tmp);
+        aux_func[j] = (Vals_pred[j] - Vals[j])*exp_ar2;
+      }
+
+      grad_a[i] = b[i]*(-2*I.Integrate(&aux_func, start_pt, end_pt) - tmp*Lambda*0.375*sqrt(M_PI/a[i])/(a[i]*a[i]));
     }
 
-    // Update parameters.
+    printf("Loss = %3.6f | Norm(S) = %3.6f | Norm(V) = %3.6f\n", Loss, pred_norm, vals_norm);
+    
     for (int i = 0; i < order; i++) {
-      // Gradient clipping.
-      if (fabs(dLagr_db[i]) > 1) dLagr_db[i] /= fabs(dLagr_db[i]);
-      if (fabs(dLagr_da[i]) > 1) dLagr_da[i] /= fabs(dLagr_da[i]);
+      tmp = grad_a[i]*lr;
+      if (fabs(tmp) > a[i]*0.5) tmp = 0.5*tmp/fabs(tmp)*a[i];
+      a[i] -= tmp;
 
-      tmp = b[i] + dLagr_db[i] * h;
-      if (tmp < 0) b[i] /= 3;
-      else b[i] = tmp;
-
-      tmp = a[i] + dLagr_da[i] * h;
-      if (tmp < 0) a[i] /= 3;
-      else a[i] = tmp;
+      tmp = grad_b[i]*lr;
+      if (fabs(tmp) > b[i]*0.5) tmp = 0.5*tmp/fabs(tmp)*b[i];
+      b[i] -= tmp;
     }
 
-    if (fabs(dLagr_dL) > 1) dLagr_dL /= fabs(dLagr_dL);
-    L += dLagr_dL * h;
+    lr *= 0.98;
+    /*
+    // Adam algorithm for paramter optimization.
+    Beta1_pow_m *= Beta1;
+    Beta2_pow_m *= Beta2;
 
+    for (int i = 0; i < order; i++) {
+      M[i] = Beta1*M[i] + (1-Beta1)*dLoss_dw[i];
+      V[i] = Beta2*V[i] + (1-Beta2)*dLoss_dw[i]*dLoss_dw[i];
+
+      M_hat = M[i]/(1 - Beta1_pow_m);
+      V_hat = V[i]/(1 - Beta2_pow_m);
+
+      if (i < order) {
+        tmp = a[i] - eta*M_hat/(sqrt(V_hat) + e);
+        if (tmp < 0.01) a[i] /= 3;
+        else a[i] = tmp;
+      } else {
+        tmp = b[i] - eta*M_hat/(sqrt(V_hat) + e);
+        if (tmp < 0) b[i] /= 3;
+        else b[i] = tmp;
+      }
+    }
+    */
     // TODO: Assemble new utility function, print out it's value, test and denug the code.
     if (epsilon < conv_toll) break;
   }
 
 }
-
-
-*/
-
 
 GaussQuad::GaussQuad(int Order)
 {

@@ -14,8 +14,10 @@ def main():
   # Read Harry Format pdb file.
   atoms = read_pdb(sys.argv[1])
 
+  atom_cnt = 0
   # Output atomic composition.
   for k, v in atoms.items():
+    atom_cnt += len(v)
     print("{} : {} atoms".format(k, len(v)))
 
 
@@ -44,11 +46,14 @@ def main():
 
 def read_pdb(name):
   atoms = {}
-  uc_bound = []
+  uc_bound = [[-0.5*79.0, 0.5*79.0], [-0.5*79.0, 0.5*79.0], [-19.0, 19.0]]
+  traslations = [v[1] - v[0] for v in uc_bound]
   atom_names = ["H", "C", "N", "O", "P", "S"]
   file = open(sys.argv[1])
+
   for i, line in enumerate(file):
     tmp = line.split()
+    """
     if tmp[0] == "TER":
       # Atoms already recorded are inside a unit cell.
       # Determine it's boundaries and drop atoms beyond it.
@@ -59,7 +64,8 @@ def read_pdb(name):
           boundary[0] = min(boundary[0], np.min(axis[:, i]))
           boundary[1] = max(boundary[1], np.max(axis[:, i]))
         uc_bound.append(boundary)
-      
+    """
+
     if tmp[-1] not in atom_names: continue
     name = tmp[-1]
     x = float(tmp[-6])
@@ -123,7 +129,7 @@ def make_MD_input(**kwargs):
   atoms = kwargs.get('atoms')
 
  # Creare plasma input file template from Harry's pdb.
-  md_file = open('MD.txt', 'w')
+  md_file = open('MD.xyz', 'w')
   num_atoms = 0
   for k, v in atoms.items():
     num_atoms += len(v)

@@ -60,13 +60,11 @@ Grid::Grid(int num_grid_pts, double r_min, double r_max, double Beta)
 	}
 }
 
-Grid::Grid(double r_max, double dR_max, int Z)
+Grid::Grid(double r_min, double r_max, double dR_max)
 {
 	// self-adjustable Grid.
 	// Box size r_max.
 	// Maximum spacing between the points at infinity dR_max.
-	// Nucleus charge Z.
-	double r_min = 0.001/Z;
 	double h = 0.05;
 	double exp_h = exp(h);
 	double r_tmp = r_min, dr_tmp = r_min*(1+h);
