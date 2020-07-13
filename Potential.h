@@ -30,7 +30,7 @@ public:
 	Potential(Grid * Lattice, int Z, string mod = "coulomb", double Rad_well = 0);
 	Potential(int i = 0) {}
 	~Potential(void) {};
-	
+
 	// Direct and Current orbital exchange in HF approximation.
 	int HF_upd_dir(RadialWF * Current, vector<RadialWF> & Orbitals);
 	// HFS local potential.
@@ -78,6 +78,7 @@ public:
 		r_well = Other.r_well;
 		delete lattice;
 		lattice = Other.lattice;
+		return *this;
 	}
 
 protected:

@@ -18,15 +18,15 @@ This file is part of AC4DC.
 #include <cmath>
 #include "Plasma.h"
 
-static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982, 
+static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,
 									  0.148874338982, 0.433395394129, 0.679409568299, 0.865063366689, 0.973906528517};
-static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475, 
+static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,
 									 0.29552422471475, 0.26926671931000, 0.21908636251598, 0.14945134915058, 0.066671344308688};
 
-static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401, 
-								-0.4484927510364467, -0.23045831595513477, 0., 0.23045831595513477, 0.4484927510364467, 
+static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,
+								-0.4484927510364467, -0.23045831595513477, 0., 0.23045831595513477, 0.4484927510364467,
 								0.6423493394403401, 0.8015780907333099, 0.9175983992229779, 0.9841830547185881};
-static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582, 
+static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,
 								0.20781604753688845, 0.2262831802628971, 0.23255155323087365, 0.2262831802628971, 0.20781604753688845,
 								0.17814598076194582, 0.13887351021978736, 0.09212149983772834, 0.04048400476531614};
 
@@ -41,7 +41,7 @@ Plasma::Plasma(int size)
 	dNdt.resize(size, 0);
 	dEdt.clear();
 	dEdt.resize(size, 0);
-	
+
 	Np.clear();
 	Np.resize(size, 0); // Number of photoelectrons.
 	Ep.clear();
@@ -65,7 +65,7 @@ void Plasma::resize(int size)
 	dNdt.resize(size, 0);
 	dEdt.clear();
 	dEdt.resize(size, 0);
-	
+
 	Np.clear();
 	Np.resize(size, 0); // Number of photoelectrons.
 	Ep.clear();
@@ -76,10 +76,10 @@ void Plasma::resize(int size)
 	dEpdt.resize(size, 0);
 
 	MaxwellT = 1;
-	MaxwellNorm = 1;	
+	MaxwellNorm = 1;
 }
 
-double Plasma::SetMaxwellPF(double Temperature)
+void Plasma::SetMaxwellPF(double Temperature)
 {
 	MaxwellT = Temperature;
 	MaxwellNorm = pow(0.5/Temperature/Constant::Pi, 1.5);
@@ -151,19 +151,19 @@ double Plasma::DsigmaBEB(double T, double W, double B, double u, int occ)
 	double t = T/B;
 	double w = W/B;
 	if (t < 1 + w) return 0;
-	
+
 	double F = 1.;//F2 first, Q = 1
 	double x = 1./(w + 1);
 	double y = 1./(t - w);
 	double Result = -1*(x + y)/(t+1) + (x*x + y*y) + log(t)*(x*x*x + y*y*y);
-	
+
 	Result *= Constant::Pi*occ/B/B/(t + u + 1);;
 	return Result;
 }
 
 double Plasma::BettaInt(double y)
 {
-	return (-505.214774*y + 384.199825)/(-3033.508326*y*y + 2756.504848*y + 
+	return (-505.214774*y + 384.199825)/(-3033.508326*y*y + 2756.504848*y +
 	863.334618) ;
 }
 
@@ -209,7 +209,7 @@ void Plasma::Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 			ME = AI.Integrate(&density, 0, infinity);
 			ME = 2*(Orbitals[j].Energy - Orbitals[i].Energy)*max(Orbitals[j].L(), Orbitals[i].L())*ME*ME
 			/3;
-			N[i] -= Orbitals[i].occupancy() * (1. - 1.*Orbitals[j].occupancy()/(4*Orbitals[j].L() + 2)) * 
+			N[i] -= Orbitals[i].occupancy() * (1. - 1.*Orbitals[j].occupancy()/(4*Orbitals[j].L() + 2)) *
 					  ME/(2*Orbitals[i].L() + 1);
 			N[j] += Orbitals[j].occupancy() * (1. - 1.*Orbitals[i].occupancy()/(4*Orbitals[i].L() + 2)) *
 					  ME/(2*Orbitals[j].L() + 1);
@@ -217,7 +217,7 @@ void Plasma::Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 	}
 
 	// At this point we have N_i containing all bound-continuum oscillator strengths.
-	// as well as the bound-virtual bound oscillators. The latter is calculated and 
+	// as well as the bound-virtual bound oscillators. The latter is calculated and
 	// approximated by asymptotic series below.
 	for (int i = 0; i < Orbitals.size(); i++) {
 		if (Orbitals[i].occupancy() == 0) continue;
@@ -272,7 +272,7 @@ void Plasma::Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 			// Add the remaining bound-bound Osc. Strg.
 			for (int os = 0; os < OscStrg_i.size(); os++) {
 				if (os == last_Osc_ind) continue;
-				BoundOscStrg += OscStrg_i[os]->val; 
+				BoundOscStrg += OscStrg_i[os]->val;
 			}
 			BoundOscStrg *= Orbitals[i].occupancy();
 			N[i] -= BoundOscStrg;
@@ -286,19 +286,19 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 	// NOTE: for accurate calculation of Q[i] parameter for BEB model
 	//       for orbital "i" there has to be virtual orbitals of at least
 	//       two shells above orbitals[i].Q().
-	// 
-	//		 f_{i-n}/(E_n - E_i) = 2/3/(2*l_i+1)|<i||r||n>|^2  for averaged 
+	//
+	//		 f_{i-n}/(E_n - E_i) = 2/3/(2*l_i+1)|<i||r||n>|^2  for averaged
 	//                                                         over projection OS
 	//
 	// Q_i = 2*\int_0^{infty} dw df_i/dw 1/(1 + w) / orbitals[i].occupancy();
 	// Q_i = |E_i|(T1 + T2 + T3)
 	// T1 = -2/3/(2*l_i+1) sum_n l_> |<i||r||n>|^2 - "n" includes virtuals except last, holes in core.
-	// T2 = -2/3/(2*l_i+1) sum_n l_> |<i||r||n>|^2 - "n" from last virtual to infinity. 
+	// T2 = -2/3/(2*l_i+1) sum_n l_> |<i||r||n>|^2 - "n" from last virtual to infinity.
 	//                                               Asymptotic for |<i||r||n>|^2 is used.
 	// T3 = 2/3/(2*l_i+1)<i||r^2||i>
 	//
 	// l_> = max(l_i, l_n)
- 
+
 
 	// Treat every orbital as if other don't exist.
 	// Unless there is a hole, than account for that oscillator.
@@ -361,7 +361,7 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 		for (auto& lv: last_virt) {
 			if (Virtuals[lv].L() == Virtuals[N_max].L()) check = true;
 		}
-		if (!check) last_virt.push_back(N_max);		
+		if (!check) last_virt.push_back(N_max);
 	}
 
 	for (int i = 0; i < Orbitals.size(); i++) {
@@ -375,7 +375,7 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 			ME = AI.Integrate(&density, 0, infinity);
 			Tmp.val = max(Virtuals[j].L(), Orbitals[i].L())*ME*ME;
 			Tmp.fill = j;
-			Tmp.hole = i;	
+			Tmp.hole = i;
 			CoreVirtDipl.push_back(Tmp);
 		}
 	}
@@ -387,7 +387,7 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 		for (auto& lv: last_virt) {
 			if (lv == j) check = true;
 		}
-		if (!check) T1[i] -= cvo.val; 
+		if (!check) T1[i] -= cvo.val;
 	}
 
 	// Work out T2 using hydrogenic-style asymptotic for
@@ -404,7 +404,7 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 			last_virt_ind = -1;
 			for (auto& vl: last_virt) {
 				if (Virtuals[vl].L() == l) {
-					last_virt_ind = vl; 
+					last_virt_ind = vl;
 					break;
 				}
 			}
@@ -420,7 +420,7 @@ void Plasma::Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF
 			if (last_Osc_ind == -1) continue;
 
 			AsmpRowSum = Constant::RiemannZeta3;
-			
+
 			SumOsc = CoreVirtDipl[last_Osc_ind].val * pow(Virtuals[last_virt_ind].N(), 3);
 			for (int corrN = 1; corrN < Virtuals[last_virt_ind].N(); corrN++) {
 				AsmpRowSum -= 1./pow(corrN, 3);
@@ -499,7 +499,7 @@ void Plasma::setup_EII(vector<RadialWF> &Virtual, double k_min, double k_max)
 			dCont = Cont;
 			dCont.Energy *= 1.01;
 
-			if (IntegrateContinuum(CntLattice, U, CntOrbitals, &Cont) < 0 
+			if (IntegrateContinuum(CntLattice, U, CntOrbitals, &Cont) < 0
 				|| IntegrateContinuum(CntLattice, U, CntOrbitals, &dCont) < 0) {
 				log << "====================================================================" << endl;
 				log << "setupe_EII: Continuum didn't converge: " << endl;
@@ -551,10 +551,6 @@ void Plasma::setup_EII(vector<RadialWF> &Virtual, double k_min, double k_max)
 			}
 		}
 	}
-	
+
 }
 */
-
-
-
-
