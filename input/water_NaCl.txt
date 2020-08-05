@@ -1,28 +1,27 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N 1500
-C 4754
-O 3157
-S 80
-H 10789
+O 15668
+H 30794
+Na 617
+Cl 617
 
 #VOLUME
-236961.26      // Volume per molecule in Angstrom^3.
+495289.17      // Volume per molecule in Angstrom^3.
 250          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 
 #PULSE
-8000         // Photon energy in eV.
+7140         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-10            // Pulse fluence in 10^4 * J/cm^2.
+5            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 4000         // Initial guess for number of time step points for rate equation.
-If the value is 0, program skips rate equation soluving step.
+// If the value is 0, program skips rate equation soluving step.
 12           // Number of threads in OpenMP.
 
 #OUTPUT
-4000         // Number of time steps in the output files.
+2000         // Number of time steps in the output files.
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

@@ -41,6 +41,7 @@ struct AtomRateData
 	vector<Rate> Fluor = vector<Rate>(0);
 	vector<Rate> Auger = vector<Rate>(0);
 	vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);
+    vector<CustomDataType::ffactor> FF = vector<CustomDataType::ffactor>(0);
 };
 
 class IntegrateRateEquation

@@ -53,6 +53,7 @@ public:
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 
 	bool ReadRates(const string & input, vector<Rate> & PutHere);
+    bool ReadFFactors(const string & input, vector<CustomDataType::ffactor> & PutHere);
 	int Symbolic(const string & input, const string & output);//convertes configuration indexes in human readable format
 	int Charge(int Iconf);
 	vector<double> PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit);
@@ -98,10 +99,10 @@ private:
 	vector<int> hole_posit;
   
 	int extend_I(vector<double>& Intensity, double new_max_T, double step_T);
-  vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
+    vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
 	vector<double> generate_T(vector<double>& dT);
 	vector<double> generate_dT(int num_elem);
-  double T_avg_RMS(vector<pair<double, int>> conf_RMS);
+    double T_avg_RMS(vector<pair<double, int>> conf_RMS);
 	double T_avg_Charge();
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); } 
@@ -109,6 +110,6 @@ private:
 	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
 	vector<int> RatesFromKeys;
-	void GenerateRateKeys(vector<Rate> & ToSort); 
+	void GenerateRateKeys(vector<Rate> & ToSort);
 };
 

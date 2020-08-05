@@ -228,6 +228,11 @@ MolInp::MolInp(char* filename, ofstream & log)
 			stream >> tmp;
 			if (tmp != 'Y') write_md_data = false;
 		}
+
+        if (n == 4) {
+			stream >> tmp;
+			if (tmp == 'Y') write_ff = true;
+		}
 	}
 
 	for (int n = 0; n < FileContent["#PULSE"].size(); n++) {
@@ -246,8 +251,8 @@ MolInp::MolInp(char* filename, ofstream & log)
 		if (n == 1) stream >> omp_threads;
 	}
 
-  // Convert to number of photon flux.
-  fluence /= omega/Constant::eV_in_au;
+    // Convert to number of photon flux.
+    fluence /= omega/Constant::eV_in_au;
 	radius /= Constant::au_in_Angs;
 	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs; 
 	

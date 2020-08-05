@@ -38,7 +38,9 @@ public:
 
 	vector<double> A, B, C, D, X, Y;
 
-	// you can start from 0 and calculare 9 subsequent points if forward=true, or start from the end and calculate 9 previous points if forward=false
+	// Start from 0 and calculare 9 subsequent points if forward=true, 
+  // or start from the end and calculate 9 previous points if forward=false.
+  // Gets initial points for Adams integrator.
 	void StartAdams(RadialWF* Psi, int start_pt, bool forward);
 
 	//finds maximum of Psi.F before classical turning point

@@ -67,10 +67,10 @@ public:
 	double Omega() { return omega; }
 	double Width() { return width; }
 	double Fluence() { return 10000*fluence; }
-  void Set_Width(double ext_width) {width = ext_width;}
-  void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
+    void Set_Width(double ext_width) {width = ext_width;}
+    void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
 	
-  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
+    void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
 		omega = ext_omega;
 		fluence = ext_fluence;
 		width = ext_width;
@@ -89,6 +89,7 @@ public:
 
 	bool Write_Charges() {return write_charges; }
 	bool Write_Intensity() {return write_intensity; }
+    bool Write_FormFactor() {return write_ff; }
 	int Out_T_size() {return out_time_steps; }
 
 	~Input();
@@ -107,6 +108,7 @@ private:
 
 	bool write_charges = false;
 	bool write_intensity = false;
+    bool write_ff = false;
 	int out_time_steps = 500; // Guess number of time steps for time dynamics.
 
 	double Master_tollerance = pow(10, -10);
@@ -140,6 +142,7 @@ public:
 	bool Write_Charges() {return write_charges; }
 	bool Write_Intensity() {return write_intensity; }
 	bool Write_MD_data() {return write_md_data; }
+    bool Write_FormFactor() {return write_ff; }
 
 	int Out_T_size() {return out_T_size; }
 
@@ -156,6 +159,7 @@ private:
 	bool write_charges = false;
 	bool write_intensity = false;
 	bool write_md_data = true;
+    bool write_ff = false;
 
 	double unit_V = 1.;
 };

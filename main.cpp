@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log);
 			Init.Store[a].name = name;
 			Init.Store[a].nAtoms = nAtoms;
-      Init.Store[a].R = Init.dropl_R();
+            Init.Store[a].R = Init.dropl_R();
 			Init.Index[a] = Dynamics.Get_Indexes();
 		}
 

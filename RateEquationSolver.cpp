@@ -45,163 +45,8 @@ lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
 //Orbitals are HF wavefunctions. This configuration is an initial state.
 //Assuming there are no unoccupied states in initial configuration!!!
 }
-/*
-int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
-{
-	// Solves system of rate equations exactly.
-	// Final_occ defines the lowest possible occupancies for the initiall orbital.
-	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
-	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
 
-	cout << "Check if there are pre-calculated rates..." << endl;
-	string RateLocation = "./output/" + input.Name() + "/Rates/";
-	if (!exists_test("./output/" + input.Name())) {
-		string dirstring = "output/" + input.Name();
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-		dirstring += "/Rates";
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-	}
-	if (!exists_test("./output/" + input.Name() + "/Rates")) {
-		string dirstring = "output/" + input.Name() + "/Rates";
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-	}
-
-	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
-
-	if (existPht) printf("Photoionization rates found. Reading...\n");
-	if (existFlr) printf("Fluorescence rates found. Reading...\n");
-	if (existAug) printf("Auger rates found. Reading...\n");
-
-	// Electron density evaluation.
-	density.clear();
-	density.resize(dimension - 1);
-	for (auto& dens: density) dens.resize(lattice.size(), 0.);
-  vector<pair<double, int>> conf_RMS(0);
-
-	if (existPht || existFlr || existAug || true)
-	{
-		cout << "No rates found. Calculating..." << endl;
-		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
-
-		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
-		{
-			#pragma omp for schedule(dynamic) nowait
-			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
-			{
-				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
-				int N_elec = 0;
-				for (int j = 0; j < Orbitals.size(); j++)
-				{
-					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
-					N_elec += Orbitals[j].occupancy();
-				}
-				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
-				// Change Lattice to lattice for electron density evaluation.
-				Potential U(&lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(lattice, Orbitals, U, input, runlog);
-
-				DecayRates Transit(lattice, Orbitals, u, input);
-
-				Tmp.from = i;
-
-				if (existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
-					for (int k = 0; k < PhotoIon.size(); k++)
-					{
-						if (PhotoIon[k].val <= 0) continue;
-						Tmp.val = PhotoIon[k].val;
-						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au - Orbitals[PhotoIon[k].hole].Energy;
-						LocalPhoto.push_back(Tmp);
-					}
-				}
-
-				if (i != 0)
-				{
-					if (existFlr) {
-						vector<fluor> Fluor = Transit.Fluor();
-						for (int k = 0; k < Fluor.size(); k++)
-						{
-							if (Fluor[k].val <= 0) continue;
-							Tmp.val = Fluor[k].val;
-							Tmp.to = i - hole_posit[Fluor[k].hole] + hole_posit[Fluor[k].fill];
-							Tmp.energy = Orbitals[Fluor[k].fill].Energy - Orbitals[Fluor[k].hole].Energy;
-							LocalFluor.push_back(Tmp);
-						}
-					}
-
-					if (existAug) {
-						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
-						for (int k = 0; k < Auger.size(); k++)
-						{
-							if (Auger[k].val <= 0) continue;
-							Tmp.val = Auger[k].val;
-							Tmp.to = i - hole_posit[Auger[k].hole] + hole_posit[Auger[k].fill] + hole_posit[Auger[k].eject];
-							Tmp.energy = Auger[k].energy;
-							LocalAuger.push_back(Tmp);
-						}
-					}
-				}
-
-			}
-
-			#pragma omp critical
-			{
-				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
-				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
-				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-			}
-		}
-
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		GenerateRateKeys(Store.Auger);
-
-		if (existPht) {
-			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-		if (existFlr) {
-			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-		if (existPht) {
-			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-
-	}
-
-	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
-	ofstream config_out(IndexTrslt);
-	for (int i = 0; i < Index.size(); i++) {
-		config_out << i << " | ";
-		for (int j = 0; j < Max_occ.size(); j++) {
-			config_out << Max_occ[j] - Index[i][j] << " ";
-		}
-		config_out << endl;
-	}
-  config_out.close();
-
- 	return dimension;
-}
-*/
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of rate equations exactly.
@@ -369,6 +214,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
  	return dimension;
 }
 
+
 AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of Atomic rate equations + Temperature and electron concentration in Plasma exactly.
@@ -395,11 +241,12 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
 	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
-	bool existFF = !exists_test(RateLocation + "Form_Factor.txt");
+	bool existFF = !ReadFFactors(RateLocation + "Form_Factor.txt", Store.FF);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
 	if (existAug) printf("Auger rates found. Reading...\n");
+    if (existFF) printf("Form Factors found. Reading...\n");
 
 	if (true)// EII parameters are not currently stored.
 	{
@@ -425,7 +272,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		tmpEIIparams.occ.resize(orbitals.size() - MaxBindInd, 0);
 		vector<EIIdata> LocalEIIparams(0);
 
-	  #pragma omp parallel default(none) \
+	    #pragma omp parallel default(none) \
 		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht, existFF) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalFF, LocalEIIparams, tmpEIIparams)
 		{
@@ -520,14 +367,14 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
-				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
+				Store.FF.insert(Store.FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(FF.begin(), FF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
+		sort(Store.FF.begin(), Store.FF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
@@ -552,7 +399,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		if (existFF) {
 			string dummy = RateLocation + "Form_Factor.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& ff : FF) {
+			for (auto& ff : Store.FF) {
 				for (int i = 0; i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
 				fprintf(fl, "\n");
 			}
@@ -573,75 +420,6 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
  	return Store;
 }
 
-
-
-bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
-{
-	if (exists_test(input))
-	{
-		Rate Tmp;
-		ifstream infile;
-		infile.open(input);
-
-		char type;
-		while (!infile.eof())
-		{
-			string line;
-			getline(infile, line);
-
-			stringstream stream(line);
-			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
-			PutHere.push_back(Tmp);
-		}
-
-		infile.close();
-		return true;
-	}
-	else return false;
-}
-
-int RateEquationSolver::Symbolic(const string & input, const string & output)
-{
-	if (Store.Photo.size() == 0)
-	{
-		if (exists_test(input)) {
-			ifstream Rates_in(input);
-			ofstream Rates_out(output);
-
-			Rate Tmp;
-			char type;
-
-			while (!Rates_in.eof())
-			{
-				string line;
-				getline(Rates_in, line);
-
-				stringstream stream(line);
-				stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
-				Rates_out << Tmp.val << " " << InterpretIndex(Tmp.from) << " " << InterpretIndex(Tmp.to) << " " << Tmp.energy << endl;
-			}
-
-			Rates_in.close();
-			Rates_out.close();
-
-			return 0;
-		}
-		else return 1;
-	} else {
-		ofstream Rates_out(output);
-
-		for (auto& v : Store.Photo) {
-			Rates_out << v.val << " " << InterpretIndex(v.from) << " " << InterpretIndex(v.to) << " " << v.energy << endl;
-		}
-
-		Rates_out.close();
-
-		return 0;
-	}
-
-}
 
 int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 {
@@ -676,19 +454,16 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 		//SmoothOrigin(T, Intensity);
 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
 		converged = Calc.Solve(0, 1, input.Out_T_size());
-		if (converged == 0)
-		{
+		if (converged == 0)	{
 			cout << "Final number of time steps: " << T_size << endl;
 			P = Calc.GetP();
 			T.clear();
 			T = Calc.GetT();
 			dT.clear();
 			dT = vector<double>(T.size(), 0);
-      for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
-      dT[T.size()-1] = dT[T.size()-2];
-		}
-		else
-		{
+            for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
+            dT[T.size()-1] = dT[T.size()-2];
+		} else {
 			cout << "Diverged at step: " << converged << " of " << T_size << endl;
 			T_size *= 2;
 		}
@@ -713,7 +488,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 	}
 
 	double t_tmp = 0;
-		for (int m = 0; m < T.size(); m++) {
+	for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
 		dT[m] *= Constant::fs_in_au;
 	}
@@ -767,6 +542,8 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 	P.clear();
 
 	vector<double> Intensity;
+    vector<double> old_Intensity;
+    vector<double> old_T;
 	double scaling_T = 1;
 
 	int converged = 1;
@@ -777,56 +554,56 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		dT = generate_dT(T_size);
 		T.clear();
 		T = generate_T(dT);
-		scaling_T = 4*input.Width()/Constant::fs_in_au / T.back();
+		scaling_T = 4*input.Width()/Constant::fs_in_au/T.back();
 		for (int i = 0; i < T.size(); i++) {
-      //T[i] = T[i]-0.5*T.back();
 			T[i] *= scaling_T;
 			dT[i] *= scaling_T;
 		}
-		Intensity = generate_I(T, fluence, Sigma);
 
-		//SmoothOrigin(T, Intensity);
+        T_size = T.size();
+		Intensity = generate_I(T, fluence, Sigma);
+        // Extend mesh to 100 fs (extra 20fs added as pulse starts at -20fs).
+        extend_I(Intensity, (2*input.Width() + 100)/Constant::fs_in_au, dT.back());
+		
+        //SmoothOrigin(T, Intensity);
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
 
-    T_size = T.size();
-
 		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
 
-		if (converged == 0)
-		{
+		if (converged == 0) {
 			cout << "Final number of time steps: " << T_size << endl;
 			P = Calc.GetP();
-			T.clear();
+            old_T = T;
 			T = Calc.GetT();
-			dT.clear();
-			dT = generate_dT(T.size());
-		}
-		else
-		{
+            old_Intensity = Intensity;
+		} else {
 			cout << "Diverged at step: " << converged << " of " << T_size << endl;
 			T_size *= 2;
 		}
 	}
 
 	Intensity.clear();
-	Intensity = generate_I(T, fluence, Sigma);
+    Intensity.resize(T.size(), 0);
+    // Intepolate intensity on a new, smaller time grid.
+    Interpolation Intp(5);
+    for (int m = 0; m < T.size(); m++) Intensity[m] = Intp.get_value(old_Intensity, old_T, T[m])[0];
+
 
 	double t_tmp = 0;
 	double I_max = *max_element(begin(Intensity), end(Intensity));
 
-	for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
-		dT[m] *= Constant::fs_in_au;
-	}
+    // Set the Gaussian pulse peak at T = 0 fs.
+	for (int m = 0; m < T.size(); m++) T[m] = T[m]*Constant::fs_in_au - 2*Input.Width();
 
 	int shift = 0;
 	vector<int> P_to_charge(0);
 
-  // Aggregate and output charges, plasma parameters, and other parameters into an output.
-  // Charges.
-  vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
-
+    // Aggregate and output charges, plasma parameters, and other parameters into an output.
+    // Charges.
+    vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
+    T_size = T.size();
+    
 	for (int a = 0; a < Input.Atomic.size(); a++) {
 
 		// Occupancies associated with the atom "a".
@@ -850,16 +627,16 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		for (auto& ch: charge) ch = vector<double>(T.size(), 0);
 		for (int i = 0; i < map_p.size(); i++)
 		{
-      int conf_ind = map_p[i];
+            int conf_ind = map_p[i];
 			tmp = P_to_charge[i];
 			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += P[conf_ind][m];
 		}
 
-    for (int m = 0; m < T.size(); m++) {
-			for (int i = 1; i < charge.size(); i++) {
-        AllAtomCharge[a][m] += i*charge[i][m];
-      }
-    }
+        for (int m = 0; m < T.size(); m++) {
+            for (int i = 1; i < charge.size(); i++) {
+                AllAtomCharge[a][m] += i*charge[i][m];
+            }
+        }
 
 		shift += Input.Store[a].num_conf;
 
@@ -901,6 +678,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		OutFile.close();
 	}
 
+
 	if (Input.Write_Intensity()) {
 		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
 		ofstream intensity_out(IntensityName);
@@ -914,7 +692,150 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		intensity_out.close();
 	}
 
+    
+    if (Input.Write_FormFactor()) {
+        // Aggregate form factor for each atom, for each time point
+        // and output to a file.
+        string FFName = "./output/FormFactor_" + Input.name + ".txt";
+		ofstream FF_out(FFName);
+        shift = 0;
+
+        // Read Form-Factors for each configuration.
+        double agg_FF[20];
+
+		for (int a = 0; a < Input.Atomic.size(); a++) {
+            // Occupancies associated with the atom "a".
+            vector<int> map_p(Input.Store[a].num_conf);
+            int num_conf = Input.Store[a].num_conf;
+            for (int i = 0; i < num_conf; i++) map_p[i] = i + shift;
+            double t = 0;
+            vector<double> p_t(map_p.size());
+            for (int m = 0; m < T.size(); m++) {
+                for (int q = 0; q < 20; q++) agg_FF[q] = 0;
+                for (int i = 0; i < num_conf; i++) p_t[i] = P[map_p[i]][m];
+                t = T[m];
+
+                FF_out << T[m] << " " << Input.Store[a].name;
+                for (auto& conf_ff: Input.Store[a].FF) {
+                    int conf_ind = conf_ff.index;
+                    double conf_prob = P[conf_ind][m];
+
+                    for (int q = 0; q < 20; q++) agg_FF[q] += conf_prob * conf_ff.val[q];
+                }
+                for (int q = 0; q < 20; q++) FF_out << " " << agg_FF[q];
+                FF_out << "\n";
+            }
+
+            shift += num_conf;
+        }
+
+		FF_out.close();
+    }
+
 	return 0;
+}
+
+
+
+
+bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
+{
+	if (exists_test(input))
+	{
+		Rate Tmp;
+		ifstream infile(input);
+
+		char type;
+		while (!infile.eof())
+		{
+			string line;
+			getline(infile, line);
+
+			stringstream stream(line);
+			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
+
+			PutHere.push_back(Tmp);
+		}
+
+		infile.close();
+		return true;
+	}
+	else return false;
+}
+
+
+bool RateEquationSolver::ReadFFactors(const string & input, vector<ffactor> & PutHere)
+{
+	if (exists_test(input))
+	{
+		ffactor Tmp;
+        Tmp.val.clear();
+        Tmp.val.resize(20, 0);
+		ifstream ifs(input);
+        string line;
+
+        int i = 0;
+		while (!ifs.eof())
+		{
+			getline(ifs, line);
+
+			stringstream ss(line);
+            Tmp.index = i;
+            
+            // TODO: Q_mesh hardcoded to have 20 points.
+            for (int q = 0; q < 20; q++) ss >> Tmp.val[q];
+
+			PutHere.push_back(Tmp);
+            i++;
+		}
+
+		ifs.close();
+		return true;
+	}
+	else return false;
+}
+
+
+int RateEquationSolver::Symbolic(const string & input, const string & output)
+{
+	if (Store.Photo.size() == 0)
+	{
+		if (exists_test(input)) {
+			ifstream Rates_in(input);
+			ofstream Rates_out(output);
+
+			Rate Tmp;
+			char type;
+
+			while (!Rates_in.eof())
+			{
+				string line;
+				getline(Rates_in, line);
+
+				stringstream stream(line);
+				stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
+
+				Rates_out << Tmp.val << " " << InterpretIndex(Tmp.from) << " " << InterpretIndex(Tmp.to) << " " << Tmp.energy << endl;
+			}
+
+			Rates_in.close();
+			Rates_out.close();
+
+			return 0;
+		}
+		else return 1;
+	} else {
+		ofstream Rates_out(output);
+
+		for (auto& v : Store.Photo) {
+			Rates_out << v.val << " " << InterpretIndex(v.from) << " " << InterpretIndex(v.to) << " " << v.energy << endl;
+		}
+
+		Rates_out.close();
+
+		return 0;
+	}
+
 }
 
 
@@ -954,12 +875,14 @@ string RateEquationSolver::InterpretIndex(int i)
 	return Result;
 }
 
+
 int RateEquationSolver::Charge(int Iconf)
 {
 	int Result = 0;
 	for (int j = 0; j < Index[Iconf].size(); j++) Result += Index[Iconf][j] - Index[0][j];
 	return Result;
 }
+
 
 bool RateEquationSolver::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
@@ -1009,15 +932,16 @@ bool RateEquationSolver::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, 
 	return true;
 }
 
-RateEquationSolver::~RateEquationSolver()
-{
-}
+
+RateEquationSolver::~RateEquationSolver() {}
+
 
 inline bool exists_test(const std::string& name)
 {
 	struct stat buffer;
 	return (stat(name.c_str(), &buffer) == 0);
 }
+
 
 vector<double> RateEquationSolver::generate_dT(int num_elem)//default time interval
 {
@@ -1029,6 +953,7 @@ vector<double> RateEquationSolver::generate_dT(int num_elem)//default time inter
 	}
 	return Result;
 }
+
 
 vector<double> RateEquationSolver::generate_T(vector<double>& dT)//default time
 {
@@ -1049,6 +974,7 @@ vector<double> RateEquationSolver::generate_T(vector<double>& dT)//default time
 
 	return Result;
 }
+
 
 vector<double> RateEquationSolver::generate_I(vector<double>& Time, double Fluence, double Sigma)//intensity of the Gaussian X-ray pulse
 {
@@ -1084,6 +1010,7 @@ vector<double> RateEquationSolver::generate_I(vector<double>& Time, double Fluen
 	return Result;
 }
 
+
 int RateEquationSolver::extend_I(vector<double>& Intensity, double new_max_T, double step_T)
 {
   // Uniform mesh is added.
@@ -1101,6 +1028,7 @@ int RateEquationSolver::extend_I(vector<double>& Intensity, double new_max_T, do
   return 0;
 }
 
+
 void SmoothOrigin(vector<double> & T, vector<double> & F)
 {
 	int smooth = T.size() / 10;
@@ -1110,6 +1038,7 @@ void SmoothOrigin(vector<double> & T, vector<double> & F)
 	}
 }
 
+
 vector<double> RateEquationSolver::generate_G()
 {
 	// Intensity profile normalized to 1.
@@ -1118,6 +1047,7 @@ vector<double> RateEquationSolver::generate_G()
 
 	return generate_I(T, 1, Sigma);
 }
+
 
 void RateEquationSolver::GenerateRateKeys(vector<Rate> & ToSort)
 {
@@ -1134,6 +1064,7 @@ void RateEquationSolver::GenerateRateKeys(vector<Rate> & ToSort)
 	}
 }
 
+
 int RateEquationSolver::mapOccInd(vector<RadialWF> & Orbitals)
 {
 	int Result = 0;
@@ -1143,6 +1074,7 @@ int RateEquationSolver::mapOccInd(vector<RadialWF> & Orbitals)
 
 	return Result;
 }
+
 
 double RateEquationSolver::T_avg_RMS(vector<pair<double, int>> conf_RMS)
 {

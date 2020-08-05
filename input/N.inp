@@ -34,3 +34,4 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 500           // Number of time steps in the output files.
 Y             // Write charge into a separate file (Y/N)?
 Y             // Write intensity into a separate file (Y/N)?
+Y             // Write time-dependent form factors, Q_mesh is 20 points from [0, 2] A^-1
