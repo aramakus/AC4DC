@@ -80,6 +80,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
 	if (existAug) printf("Auger rates found. Reading...\n");
+    if (existFF) printf("Auger rates found. Reading...\n");
 
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
@@ -166,6 +167,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 			}
 		}
+
+        // Add the last configuration
+        if (existFF) FF.push_back({dimension-1, vector<double> (FF.back().val.size(), 0)});
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
@@ -369,7 +373,10 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
 				Store.FF.insert(Store.FF.end(), LocalFF.begin(), LocalFF.end());
 			}
-		}
+		}       
+
+        // Add the last configuration
+        if (existFF) Store.FF.push_back({dimension-1, vector<double> (Store.FF.back().val.size(), 0)});
 
 		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
@@ -705,20 +712,17 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 		for (int a = 0; a < Input.Atomic.size(); a++) {
             // Occupancies associated with the atom "a".
-            vector<int> map_p(Input.Store[a].num_conf);
             int num_conf = Input.Store[a].num_conf;
-            for (int i = 0; i < num_conf; i++) map_p[i] = i + shift;
-            double t = 0;
-            vector<double> p_t(map_p.size());
+            
+            vector<double> p_t(num_conf);
             for (int m = 0; m < T.size(); m++) {
                 for (int q = 0; q < 20; q++) agg_FF[q] = 0;
-                for (int i = 0; i < num_conf; i++) p_t[i] = P[map_p[i]][m];
-                t = T[m];
+                for (int i = 0; i < num_conf; i++) p_t[i] = P[i + shift][m];            
 
                 FF_out << T[m] << " " << Input.Store[a].name;
                 for (auto& conf_ff: Input.Store[a].FF) {
                     int conf_ind = conf_ff.index;
-                    double conf_prob = P[conf_ind][m];
+                    double conf_prob = p_t[conf_ind];
 
                     for (int q = 0; q < 20; q++) agg_FF[q] += conf_prob * conf_ff.val[q];
                 }
@@ -778,7 +782,7 @@ bool RateEquationSolver::ReadFFactors(const string & input, vector<ffactor> & Pu
 		while (!ifs.eof())
 		{
 			getline(ifs, line);
-
+            if (line == "") continue;
 			stringstream ss(line);
             Tmp.index = i;
             
