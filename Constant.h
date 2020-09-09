@@ -67,7 +67,7 @@ namespace CustomDataType
 
 	struct ffactor//form factor for Q_mesh values in FormFactor class
 	{
-        // Hardcoded Q_mesh from [0, 2] with 20 points. Hardcoded im RateEquationSolver::ReadFFactors!!!
+        // Hardcoded Q_mesh from 0 with 0.1 A^-1 step.
 		int index;
 		vector<double> val;
 	};

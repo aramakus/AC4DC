@@ -124,7 +124,8 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 
 	Grid lattice(num_grid_pts, r_min/Z, r_box, 4);
 	Lattice = lattice;
-	fluence /= omega/Constant::eV_in_au;
+    omega /= Constant::eV_in_au;
+	fluence /= omega;
 }
 
 Input::Input(const Input & Other)
@@ -252,7 +253,8 @@ MolInp::MolInp(char* filename, ofstream & log)
 	}
 
     // Convert to number of photon flux.
-    fluence /= omega/Constant::eV_in_au;
+    omega /= Constant::eV_in_au;
+    fluence /= omega;
 	radius /= Constant::au_in_Angs;
 	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs; 
 	

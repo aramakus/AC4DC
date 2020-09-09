@@ -52,9 +52,6 @@ public:
 
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 
-	bool ReadRates(const string & input, vector<Rate> & PutHere);
-    bool ReadFFactors(const string & input, vector<CustomDataType::ffactor> & PutHere);
-	int Symbolic(const string & input, const string & output);//convertes configuration indexes in human readable format
 	int Charge(int Iconf);
 	vector<double> PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit);
 	vector<double> Secular(vector<RadialWF> & Virtual, double Dist, double Einit);
@@ -91,25 +88,33 @@ protected:
 	//int SetupAndSolve(vector<Rate> rates, double I_max, double HalfWidth, ofstream & log, int & start_T_size);
 
 private:
-	string InterpretIndex(int i);
-
 	AtomRateData Store;
 	
 	vector<CustomDataType::ffactor> FF;
 	vector<int> hole_posit;
+
+    string InterpretIndex(int i);
   
-	int extend_I(vector<double>& Intensity, double new_max_T, double step_T);
-    vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
-	vector<double> generate_T(vector<double>& dT);
-	vector<double> generate_dT(int num_elem);
-    double T_avg_RMS(vector<pair<double, int>> conf_RMS);
-	double T_avg_Charge();
+	int extend_I(vector<double>& Intensity, double new_max_T, double step_T); // Extend time mesh to the right, \
+    fluence is 0 at the extra time points
+    vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth); // Generate intensity on a time mesh
+	vector<double> generate_T(vector<double>& dT); // Generate time mesh from differential time mesh
+	vector<double> generate_dT(int num_elem); // Generate differential time mesh (see function definition)
+    double T_avg_RMS(vector<pair<double, int>> conf_RMS); // Calculate RMS radius of ion on a time mesh
+	double T_avg_Charge(); // Compute time averaged charge of ion
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); } 
 	static bool sortRatesFrom(Rate A, Rate B) { return (A.from < B.from); }
 	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }
-	// Keys allow to quickly find the required element. See the GenerateFromKeys().
-	vector<int> RatesFromKeys;
+	
+	vector<int> RatesFromKeys; // Keys allow to quickly find the required element. See the GenerateFromKeys().
 	void GenerateRateKeys(vector<Rate> & ToSort);
+
+    CustomDataType::EIIdata CalcBEBparams(int i, const vector<int> & Final_occ, const vector<int> & Max_occ, \
+                                          Potential & U, vector<RadialWF> & Orbitals);
+    bool ReadRates(const string & input, vector<Rate> & PutHere); // Read rates from a file
+    bool ReadFFactors(const string & input, vector<CustomDataType::ffactor> & PutHere); // Read scattering form-factors \
+    from a file
+	int Symbolic(const string & input, const string & output); //Convertes configuration indexes in human readable format
 };
 

@@ -148,7 +148,7 @@ public:
 
 	string name = "";
 private:
-	double omega = 5000;// XFEL photon energy, eV.
+	double omega = 5000/27.2;// XFEL photon energy, eV.
 	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
 	int num_time_steps = 1000; // Guess number of time steps for time dynamics.

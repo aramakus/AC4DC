@@ -72,6 +72,11 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
+	if (!exists_test(RateLocation)) {
+		string dirstring = "output/" + input.Name() + "/Rates";
+		mkdir(dirstring.c_str(), ACCESSPERMS);
+	}
+
 	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
 	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
@@ -120,13 +125,13 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 				Tmp.from = i;
 
 				if (existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
+					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
 						if (PhotoIon[k].val <= 0) continue;
 						Tmp.val = PhotoIon[k].val;
 						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au - Orbitals[PhotoIon[k].hole].Energy;
+						Tmp.energy = input.Omega() - Orbitals[PhotoIon[k].hole].Energy;
 						LocalPhoto.push_back(Tmp);
 					}
 				}
@@ -261,30 +266,20 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 		vector<ffactor> LocalFF(0);
-		// Electron impact ionization orbital enerrgy storage.
-		EIIdata tmpEIIparams;
-		int MaxBindInd = 0;
-		// Slippery assumption - electron impact cannot ionize more than the XFEL photon.
-		while(Final_occ[MaxBindInd] == orbitals[MaxBindInd].occupancy()) MaxBindInd++;
-		tmpEIIparams.kin.clear();
-		tmpEIIparams.kin.resize(orbitals.size() - MaxBindInd, 0);
-		tmpEIIparams.ionB.clear();
-		tmpEIIparams.ionB.resize(orbitals.size() - MaxBindInd, 0);
-		tmpEIIparams.fin.clear();
-		tmpEIIparams.fin.resize(orbitals.size() - MaxBindInd, 0);
-		tmpEIIparams.occ.clear();
-		tmpEIIparams.occ.resize(orbitals.size() - MaxBindInd, 0);
 		vector<EIIdata> LocalEIIparams(0);
 
 	    #pragma omp parallel default(none) \
-		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht, existFF) \
-		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalFF, LocalEIIparams, tmpEIIparams)
+		shared(cout, Max_occ, Final_occ, runlog, existAug, existFlr, existPht, existFF) \
+		private(Tmp, LocalPhoto, LocalAuger, LocalFluor, LocalFF, LocalEIIparams)
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+                #pragma omp critical
+			    {
+				    cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+                }
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++) {
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
@@ -296,27 +291,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 
 				// EII parameters to store for Later BEB model calculation.
-				tmpEIIparams.init = i;
-				int size = 0;
-				for (int n = MaxBindInd; n < Orbitals.size(); n++) if (Orbitals[n].occupancy() != 0) size++;
-				tmpEIIparams.kin = U.Get_Kinetic(Orbitals, MaxBindInd);
-				tmpEIIparams.ionB = vector<float>(size, 0);
-				tmpEIIparams.fin = vector<int>(size, 0);
-				tmpEIIparams.occ = vector<int>(size, 0);
-				size = 0;
-				//tmpEIIparams.inds.resize(tmpEIIparams.vec2.size(), 0);
-				for (int j = MaxBindInd; j < Orbitals.size(); j++) {
-					if (Orbitals[j].occupancy() == 0) continue;
-					int old_occ = Orbitals[j].occupancy();
-					Orbitals[j].set_occupancy(old_occ - 1);
-					tmpEIIparams.fin[size] = mapOccInd(Orbitals);
-					tmpEIIparams.occ[size] = old_occ;
-					Orbitals[j].set_occupancy(old_occ);
-					tmpEIIparams.ionB[size] = float(-1*Orbitals[j].Energy);
-					tmpEIIparams.kin[size] /= tmpEIIparams.ionB[size];
-					size++;
-				}
-				LocalEIIparams.push_back(tmpEIIparams);
+				LocalEIIparams.push_back(CalcBEBparams(i, Final_occ, Max_occ, U, Orbitals));
 
 				DecayRates Transit(lattice, Orbitals, u, input);
 
@@ -326,13 +301,13 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Tmp.from = i;
 
 				if (existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
+					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
 						if (PhotoIon[k].val <= 0) continue;
 						Tmp.val = PhotoIon[k].val;
 						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au + Orbitals[PhotoIon[k].hole].Energy;
+						Tmp.energy = input.Omega() + Orbitals[PhotoIon[k].hole].Energy;
 						LocalPhoto.push_back(Tmp);
 					}
 				}
@@ -708,7 +683,8 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
         shift = 0;
 
         // Read Form-Factors for each configuration.
-        double agg_FF[20];
+        int ff_q_size = Input.Store[0].FF[0].val.size();
+        double agg_FF[ff_q_size];
 
 		for (int a = 0; a < Input.Atomic.size(); a++) {
             // Occupancies associated with the atom "a".
@@ -716,7 +692,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
             
             vector<double> p_t(num_conf);
             for (int m = 0; m < T.size(); m++) {
-                for (int q = 0; q < 20; q++) agg_FF[q] = 0;
+                for (int q = 0; q < ff_q_size; q++) agg_FF[q] = 0;
                 for (int i = 0; i < num_conf; i++) p_t[i] = P[i + shift][m];            
 
                 FF_out << T[m] << " " << Input.Store[a].name;
@@ -724,9 +700,9 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
                     int conf_ind = conf_ff.index;
                     double conf_prob = p_t[conf_ind];
 
-                    for (int q = 0; q < 20; q++) agg_FF[q] += conf_prob * conf_ff.val[q];
+                    for (int q = 0; q < ff_q_size; q++) agg_FF[q] += conf_prob * conf_ff.val[q];
                 }
-                for (int q = 0; q < 20; q++) FF_out << " " << agg_FF[q];
+                for (int q = 0; q < ff_q_size; q++) FF_out << " " << agg_FF[q];
                 FF_out << "\n";
             }
 
@@ -738,8 +714,6 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 	return 0;
 }
-
-
 
 
 bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
@@ -777,17 +751,27 @@ bool RateEquationSolver::ReadFFactors(const string & input, vector<ffactor> & Pu
         Tmp.val.resize(20, 0);
 		ifstream ifs(input);
         string line;
+        string token;
+        double tmp;
 
         int i = 0;
-		while (!ifs.eof())
+		while (getline(ifs, line))
 		{
-			getline(ifs, line);
             if (line == "") continue;
-			stringstream ss(line);
+
+            std::string::size_type sz;     // alias of size_t
+			
             Tmp.index = i;
-            
+            Tmp.val.clear();
+
             // TODO: Q_mesh hardcoded to have 20 points.
-            for (int q = 0; q < 20; q++) ss >> Tmp.val[q];
+            while(line.size() > 0) {
+                try {
+                    Tmp.val.push_back(stod(line, &sz));
+                    line = line.substr(sz);
+                }
+                catch (const invalid_argument& ia) {break;}
+            }
 
 			PutHere.push_back(Tmp);
             i++;
@@ -1116,4 +1100,48 @@ double RateEquationSolver::T_avg_Charge()
   Adams I(Time, 10);
 
   return I.Integrate(&intensity, 0, T.size()-1);
+}
+
+
+CustomDataType::EIIdata RateEquationSolver::CalcBEBparams(int i, const vector<int> & Final_occ, const vector<int> & Max_occ, Potential & U, vector<RadialWF> & Orbitals)
+{
+    // Electron impact ionization orbital enerrgy storage.
+    CustomDataType::EIIdata EIIparams;
+    int MaxBoundInd = 0;
+    // Slippery assumption - electron impact cannot ionize more than the XFEL photon.
+    while(Final_occ[MaxBoundInd] == Max_occ[MaxBoundInd]) MaxBoundInd++;
+
+    EIIparams.kin.clear();
+    EIIparams.kin.resize(Orbitals.size() - MaxBoundInd, 0);
+    EIIparams.ionB.clear();
+    EIIparams.ionB.resize(Orbitals.size() - MaxBoundInd, 0);
+    EIIparams.fin.clear();
+    EIIparams.fin.resize(Orbitals.size() - MaxBoundInd, 0);
+    EIIparams.occ.clear();
+    EIIparams.occ.resize(Orbitals.size() - MaxBoundInd, 0);
+
+    // EII parameters to store for Later BEB model calculation.
+    EIIparams.init = i;
+
+    int size = 0;
+    for (int n = MaxBoundInd; n < Orbitals.size(); n++) if (Orbitals[n].occupancy() != 0) size++;
+    EIIparams.kin = U.Get_Kinetic(Orbitals, MaxBoundInd);
+    EIIparams.ionB = vector<float>(size, 0);
+    EIIparams.fin = vector<int>(size, 0);
+    EIIparams.occ = vector<int>(size, 0);
+    size = 0;
+    //tmpEIIparams.inds.resize(tmpEIIparams.vec2.size(), 0);
+    for (int j = MaxBoundInd; j < Orbitals.size(); j++) {
+        if (Orbitals[j].occupancy() == 0) continue;
+        int old_occ = Orbitals[j].occupancy();
+        Orbitals[j].set_occupancy(old_occ - 1);
+        EIIparams.fin[size] = mapOccInd(Orbitals);
+        EIIparams.occ[size] = old_occ;
+        Orbitals[j].set_occupancy(old_occ);
+        EIIparams.ionB[size] = float(-1*Orbitals[j].Energy);
+        EIIparams.kin[size] /= EIIparams.ionB[size];
+        size++;
+    }
+    
+    return EIIparams;
 }

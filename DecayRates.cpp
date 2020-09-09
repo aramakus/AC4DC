@@ -413,16 +413,16 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 }
 
 
-vector<double> DecayRates::FT_density(double Q_min, double Q_max, int Q_size)
+vector<double> DecayRates::FT_density(double Q_min, double Q_max)
 {
 	// Fourier Transform of radially symmetric density. Essentially, an integral:
 	// int_0^{infty} dr density(r) sinc(2*pi*Q*r)
 	double Q = Q_min;
-	double dQ = (Q_max - Q_min)/(Q_size - 1);
+	double dQ = 0.1;
 
 	Grid Inp_lattice = lattice;
 
-	vector<double> Output(Q_size, 0);
+	vector<double> Output;
 	vector<double> Inp_density = u.make_density(orbitals);
 
 	// find practical infty of density
@@ -436,7 +436,7 @@ vector<double> DecayRates::FT_density(double Q_min, double Q_max, int Q_size)
 
 	vector<double> integr(infty+1, 0);
 
-	for (int m = 0; m < Q_size; m++) {
+	while (Q <= Q_max) {
 		if (2*M_PI*Inp_lattice.dR(infty)*Q > 0.05) {
 			// Create a new lattice and do interpolation.
 			double dR_max = 0.05/(2*M_PI*Q_max);
@@ -464,7 +464,7 @@ vector<double> DecayRates::FT_density(double Q_min, double Q_max, int Q_size)
 			}
 		}
 
-		Output[m] = IT.Integrate(&integr, 0, integr.size()-1);
+		Output.push_back(IT.Integrate(&integr, 0, integr.size()-1));
 		Q += dQ;
 	}
 

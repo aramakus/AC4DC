@@ -954,7 +954,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 	//  eSp[i][t] = v[t] * Sum{j} e[ij]*SigmaEII[v[t], i->j]
 
 	// Set up storage container for time (t_storage) and occupancies (p_storage)
-	int storage_count = t.size() / storage_time_pts;
+	int storage_count = max((int)(t.size() / storage_time_pts), 1);
 	time_storage.resize(t.size()/storage_count);
 	p_storage.resize(p.size());
 	for (auto& v : p_storage) {
@@ -1093,7 +1093,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			}
 			for (auto& EII: Store[a].EIIparams) {
 				for (int i = 0; i < EII.fin.size(); i++) {
-					tmp = Pix4*Elecs.MaxwellEII(EII.ionB[i], EII.kin[i], EII.occ[i]);
+					tmp = Pix4 * Elecs.MaxwellEII(EII.ionB[i], EII.kin[i], EII.occ[i]);
 					mxw_tmp = Pi3x8 * Elecs.MaxwellPF(-1.*EII.ionB[i]) * tmp;
 					Tbr[a][EII.fin[i]] += mxw_tmp;
 					eTbr[a][EII.fin[i]] += mxw_tmp * EII.ionB[i];
@@ -1211,7 +1211,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			}
 			for (auto& EII: Store[a].EIIparams) {
 				for (int i = 0; i < EII.fin.size(); i++) {
-					tmp = Pix4*Elecs.MaxwellEII(EII.ionB[i], EII.kin[i], EII.occ[i]);
+					tmp = Pix4 * Elecs.MaxwellEII(EII.ionB[i], EII.kin[i], EII.occ[i]);
 					mxw_tmp = Pi3x8 * Elecs.MaxwellPF(EII.ionB[i]) * tmp;
 					Tbr[a][EII.fin[i]] += mxw_tmp;
 					eTbr[a][EII.fin[i]] += mxw_tmp * EII.ionB[i];
@@ -1256,6 +1256,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 
 		if ((m % storage_count) == 0) {
 			int k = m / storage_count;
+            if (time_storage.size() == k) continue;
 			time_storage[k] = t[m];
 			for (int i = 0; i < p.size(); i++)	{
 				p_storage[i][k] = p[i][p_size - 2];

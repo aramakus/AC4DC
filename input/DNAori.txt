@@ -1,0 +1,34 @@
+// DNA origami. Assume that each nucleotide as an average of A,G,C,T.
+// A: C(10) H(12) O(5) N(5) P(1)
+// G: C(10) H(12) O(6) N(5) P(1)
+// C: C(9)  H(12) O(6) N(3) P(1)
+// T: C(10) H(13) O(7) N(2) P(1)
+// Consider the 32 base pairs (16 of each nucleotides).
+
+#ATOMS
+H 784 
+C 624
+N 240
+O 384
+P  64
+
+#VOLUME
+// 32 base pairs (64 nucleotides) per 10nm cylinder. Cylinder radius - 1nm + 0.5nm gap between cylinders. 
+70766     // Volume per 64 nucleotides.
+200       // Droplet radius, calculated for all nucleotides and water.
+
+#PULSE
+8000        // Photon energy in eV.
+30          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+318        // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
+12           // Number of threads in OpenMP.
+
+#OUTPUT
+2000         // Number of time steps in the output files.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+Y            // Write time-dependent form factors, Q_mesh is 20 points from [0, 2] A^-1
