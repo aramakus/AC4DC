@@ -3,8 +3,8 @@
 #ATOMS
 O 15668
 H 30794
-// Na 617
-// Cl 617
+Na 617
+Cl 617
 
 #VOLUME
 495289.17    // Volume per molecule in Angstrom^3.
